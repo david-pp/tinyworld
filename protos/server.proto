@@ -1,0 +1,33 @@
+//
+// 服务器相关协议
+//
+package Cmd.Server;
+
+
+// 登录服务器(C->S)
+message LoginRequest {
+	enum MsgType1 { TYPE1  = 255; }
+	enum MsgType2 { TYPE2  = 1; }
+
+	required uint32 id   = 1;     // 连接ID
+	required uint32 type = 2;     // 连接类型
+	optional string password = 3; // 验证密码
+}
+
+// 返回
+message LoginReply {
+	enum MsgType1 { TYPE1  = 255; }
+	enum MsgType2 { TYPE2  = 2; }
+
+	required uint32 retcode = 1;  // 0-OK other-另外定义
+};
+
+// 同步网关进程连接数量
+message SyncGateUserCount {
+	enum MsgType1 { TYPE1  = 255; }
+	enum MsgType2 { TYPE2  = 3; }
+	
+	optional string gate_ip    = 1;   // 登录网关IP
+	optional uint32 gate_port  = 2;   // 登录网关端口
+	optional uint32 usercount  = 3;   // 连接数量
+}

@@ -1,0 +1,6 @@
+package Cmd;
+
+message Set {
+	optional bytes key = 1;
+	optional bytes value = 2;	
+};

@@ -1,0 +1,15 @@
+#
+# Copy this file to  /usr/local/lib/pkgconfig/ 
+# or, set enviroment variables : PKG_CONFIG_PATH
+#
+
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: boost
+Description: Boost For TinyWorld
+Version: 1.5.7
+Libs: -L${libdir} -lboost_system  -lboost_thread
+Cflags: -I${includedir}

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<loginserver>
+		<iothreads>2</iothreads>
+		<workerthreads>2</workerthreads>
+		<mysql>mysql://david:123456@127.0.0.1/tinyworld</mysql>
+		<listen_outter>tinyworld://0.0.0.0:8888</listen_outter>
+		<listen_inner>tinyworld://0.0.0.0:8887</listen_inner>
+	</loginserver>
+
+	<!-- 服务器类型 -->
+	<!-- 1 - 世界管理服务器 -->
+	<!-- 2 - 世界服务器 -->
+	<!-- 3 - 网关服务器 -->
+	<!-- 100 - 登录服务器 -->
+
+	<!-- World Manager Server -->
+	<worldmanager id="1">
+		<iothreads>2</iothreads>
+		<workerthreads>2</workerthreads>
+		<listen>tinyworld://0.0.0.0:8000</listen>
+		<connect>tinyworld://127.0.0.1:8887/101?type=100</connect>
+		<connect>tinyworld://127.0.0.1:8887/102?type=100</connect>
+	</worldmanager>
+
+	<!-- World Servers -->
+	<worldserver id="11">
+		<iothreads>2</iothreads>
+		<workerthreads>1</workerthreads>
+		<listen>tinyworld://0.0.0.0:8001</listen>
+		<connect>tinyworld://127.0.0.1:8000/1?type=1</connect>
+	</worldserver>
+	<worldserver id="12">
+		<iothreads>2</iothreads>
+		<workerthreads>1</workerthreads>
+		<listen>tinyworld://0.0.0.0:8002</listen>
+		<connect>tinyworld://127.0.0.1:8000/1?type=1</connect>
+	</worldserver>
+
+	<!-- Gateway Servers -->
+	<gateserver id="91">
+		<iothreads>2</iothreads>
+		<workerthreads>2</workerthreads>
+		<listen>tinyworld://0.0.0.0:9001</listen>
+		<connect>tinyworld://127.0.0.1:8000/1?type=1</connect>
+		<connect>tinyworld://127.0.0.1:8001/11?type=2</connect>
+		<connect>tinyworld://127.0.0.1:8002/12?type=2</connect>
+	</gateserver>
+	<gateserver id="92">
+		<iothreads>2</iothreads>
+		<workerthreads>2</workerthreads>
+		<listen>tinyworld://0.0.0.0:9002</listen>
+		<connect>tinyworld://127.0.0.1:8000/1?type=1</connect>
+		<connect>tinyworld://127.0.0.1:8001/11?type=2</connect>
+		<connect>tinyworld://127.0.0.1:8002/12?type=2</connect>
+	</gateserver>
+</config>

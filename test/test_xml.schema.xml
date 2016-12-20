@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<!-- comment -->
+	<master>string</master>
+	<bind>int</bind>
+
+	<!-- 注释 -->
+	<App name="string" container_="map" key_="name">string</App>
+	<list prop1="int" prop2="string" container_="vector">string</list>
+	<onlyprop prop1="int" prop2="float" prop3="string">
+		<subnode p1="int" p2="int"/>
+	</onlyprop>
+
+	<parent id="int">
+		<MyVec name="string" container_="list">
+			<onlyone p1="string" p2="int" container_="vector"/>
+		</MyVec>
+	</parent>
+</config>

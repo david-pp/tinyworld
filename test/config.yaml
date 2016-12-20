@@ -1,0 +1,24 @@
+default:
+  #
+  # server address
+  #
+  listen: tcp://*:5555  
+
+  #
+  # number of worker threads
+  #
+  workers: 10
+
+  caches:
+    - redis://127.0.0.1:6379/0?shard=0
+    - redis://127.0.0.1:6379/1?shard=1
+    - redis://127.0.0.1:6379/2?shard=2
+    - redis://127.0.0.1:6379/3?shard=3
+
+  cacheonly: 1
+
+  databases:
+    - mysql://david:123456@127.0.0.1/shard0?shard=0
+    - mysql://david:123456@127.0.0.1/shard1?shard=1
+
+  tablenums: 20

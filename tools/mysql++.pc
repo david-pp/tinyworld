@@ -1,0 +1,15 @@
+#
+# Copy this file to  /usr/local/lib/pkgconfig/ 
+# or, set enviroment variables : PKG_CONFIG_PATH
+#
+
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: mysql++
+Description: mysql++ libs
+Version: 1.5.7
+Libs: -L${libdir} -lmysqlpp
+Cflags: -I${includedir}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<master>tcp://localhost:5555</master>
+
+	<bind>5555</bind>
+
+	<app name="gs.1">tcp://127.0.0.1:5555</app>
+	<app name="gs.2">tcp://127.0.0.1:5555<</app>
+	<app name="ws">tcp://127.0.0.1:5555<</app>
+</config>
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<master>std::string</master>
+	<bind>uint32</bind>
+	<app name="std::string" container_="map" key_="name">std::string</app>
+</config>
+

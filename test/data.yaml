@@ -1,0 +1,12 @@
+- UserT:
+  - {field: charid, type: 'int'}
+  - {field: name, type: 'std::string'}
+  - {field: sex, type: 'int'}
+  - {field: age, type: 'int'}
+#  - {field: data1, type: 'Test', flag: 'protobuf'}
+#  - {field: data2, type: 'Json::Value', flag: 'json'}
+
+#- SeptT:
+#  - {field: data1, type: 'int', flag: 'protobuf'}
+#  - {field: data2, type: 'int', flag: 'json'}
+#  - {field: data3, type: 'int'}
