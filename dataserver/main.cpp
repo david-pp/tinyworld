@@ -38,6 +38,8 @@ public:
     {
         table = "PLAYER";
 
+        keys = {"ID"};
+
         fields = {
                 {"ID",    "int(10) unsigned NOT NULL default '0'"},
                 {"NAME",  "varchar(32) NOT NULL default ''"},
@@ -46,85 +48,40 @@ public:
         };
     }
 
-    void object2Query(mysqlpp::Query &query, const ObjectType& object)
+    void object2Query(mysqlpp::Query &query, const void* objptr)
     {
+        const ObjectType& object = *(ObjectType*)objptr;
+
         query << object.id << ","
               << mysqlpp::quote << object.name << ","
               << mysqlpp::quote << object.bin << ","
               << object.score;
     }
 
-    void pair2Query(mysqlpp::Query &query, const ObjectType& object)
+    void pair2Query(mysqlpp::Query &query, const void* objptr)
     {
+        const ObjectType& object = *(ObjectType*)objptr;
+
         query << "ID=" << object.id << ","
               << "NAME=" << mysqlpp::quote_only << object.name << ","
               << "BIN=" << mysqlpp::quote << object.bin << ","
               << "SCORE=" << object.score;
     }
 
-    void key2Query(mysqlpp::Query &query, const ObjectType& object)
+    void key2Query(mysqlpp::Query &query, const void* objptr)
     {
+        const ObjectType& object = *(ObjectType*)objptr;
+
         query << "ID=" << object.id;
     }
 
-    //
-    // Single Object
-    //
-    void makeInsertQuery(mysqlpp::Query &query, const ObjectType& object)
-    {
-        query << "INSERT INTO ` "<< table << "` (";
-        fields2Query(query);
-        query << ") ";
-        query << "VALUES (";
-        object2Query(query, object);
-        query << ");";
-    }
-
-    void makeReplaceQuery(mysqlpp::Query& query, const ObjectType& object)
-    {
-        query << "REPLACE INTO ` "<< table << "` (";
-        fields2Query(query);
-        query << ") ";
-        query << "VALUES (";
-        object2Query(query, object);
-        query << ");";
-    }
-
-    void makeUpdateQuery(mysqlpp::Query& query, const ObjectType& object)
-    {
-        query << "UPDATE `" << table << "` SET ";
-        pair2Query(query, object);
-        query << " WHERE ";
-        key2Query(query, object);
-        query << ";";
-    }
-
-    void makeDeleteQuery(mysqlpp::Query& query, const ObjectType& object)
-    {
-        query << "DELETE FROM `" << table << "` WHERE ";
-        key2Query(query, object);
-        query << ";";
-    }
-
-    void makeSelectQuery(mysqlpp::Query& query, const ObjectType& object)
-    {
-        query << "SELECT ";
-        fields2Query(query);
-        query << " FROM `" << table << "` WHERE ";
-        key2Query(query, object);
-        query << ";";
-    }
-
-
-
-
-    //
-    // Row -> Object
-    //
-    bool loadFromRecord(Player& object, mysqlpp::Row& record)
+    bool record2Object(mysqlpp::Row& record, void* objptr)
     {
         if (record.size() != fields.size())
             return false;
+
+        ObjectType& object = *(ObjectType*)objptr;
+
         object.id = record[0];
         strncpy(object.name, record[1].data(), 31);
         object.bin.assign(record[2].data(), record[2].size());
@@ -162,6 +119,12 @@ void test_db()
     LOG4CXX_DEBUG(logger, "SQL:" << query.str());
     query.reset();
     pd.makeDeleteFromQuery(query, "WHERE ID=100");
+    LOG4CXX_DEBUG(logger, "SQL:" << query.str());
+    query.reset();
+    pd.makeCreateQuery(query);
+    LOG4CXX_DEBUG(logger, "SQL:" << query.str());
+    query.reset();
+    pd.makeAddFieldQuery(query, "ID");
     LOG4CXX_DEBUG(logger, "SQL:" << query.str());
     query.reset();
 }

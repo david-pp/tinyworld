@@ -5,6 +5,66 @@
 #ifndef TINYWORLD_OBJECT2DB_IN_H
 #define TINYWORLD_OBJECT2DB_IN_H
 
+template <typename ObjectType>
+void DBDescriptor::makeInsertQuery(mysqlpp::Query &query, const ObjectType& object)
+{
+    query << "INSERT INTO `"<< table << "` (";
+    fields2Query(query);
+    query << ") ";
+    query << "VALUES (";
+    object2Query(query, &object);
+    query << ");";
+}
+
+template <typename ObjectType>
+void DBDescriptor::makeReplaceQuery(mysqlpp::Query& query, const ObjectType& object)
+{
+    query << "REPLACE INTO `"<< table << "` (";
+    fields2Query(query);
+    query << ") ";
+    query << "VALUES (";
+    object2Query(query, &object);
+    query << ");";
+}
+
+template <typename ObjectType>
+void DBDescriptor::makeUpdateQuery(mysqlpp::Query& query, const ObjectType& object)
+{
+    query << "UPDATE `" << table << "` SET ";
+    pair2Query(query, &object);
+    query << " WHERE ";
+    key2Query(query, &object);
+    query << ";";
+}
+
+template <typename ObjectType>
+void DBDescriptor::makeDeleteQuery(mysqlpp::Query& query, const ObjectType& object)
+{
+    query << "DELETE FROM `" << table << "` WHERE ";
+    key2Query(query, &object);
+    query << ";";
+}
+
+template <typename ObjectType>
+void DBDescriptor::makeSelectQuery(mysqlpp::Query& query, const ObjectType& object)
+{
+    query << "SELECT ";
+    fields2Query(query);
+    query << " FROM `" << table << "` WHERE ";
+    key2Query(query, &object);
+    query << ";";
+}
+
+
+template <typename ObjectType>
+bool DBDescriptor::loadFromRecord(ObjectType& object, mysqlpp::Row& record)
+{
+    return record2Object(record, &object);
+}
+
+
+/////////////////////////////////////////////////////////////////
+
 template <typename T, typename T_DBDescriptor>
 T_DBDescriptor Object2DB<T, T_DBDescriptor>::descriptor_;
 
@@ -14,7 +74,7 @@ bool Object2DB<T, T_DBDescriptor>::createTable()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[Object2DB] 无法获取mysql连接");
+        descriptor_.errlog("createTable, 无法获取mysql连接");
         return false;
     }
 
@@ -25,13 +85,12 @@ bool Object2DB<T, T_DBDescriptor>::createTable()
         mysqlpp::SimpleResult res = query.execute();
         if (res)
         {
-            LOG4CXX_INFO(MySQL::logger, "create table: ok");
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("createTable, %s", err.what());
         return false;
     }
 
@@ -44,7 +103,7 @@ bool Object2DB<T, T_DBDescriptor>::dropTable()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("dropTable, 无法获取mysql连接");
         return false;
     }
 
@@ -55,13 +114,12 @@ bool Object2DB<T, T_DBDescriptor>::dropTable()
         mysqlpp::SimpleResult res = query.execute();
         if (res)
         {
-            LOG4CXX_INFO(MySQL::logger, "drop table: ok " << res.info());
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("dropTable, %s", err.what());
         return false;
     }
 
@@ -74,7 +132,7 @@ bool Object2DB<T, T_DBDescriptor>::updateTable()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("updateTable, 无法获取mysql连接");
         return false;
     }
 
@@ -85,14 +143,13 @@ bool Object2DB<T, T_DBDescriptor>::updateTable()
         mysqlpp::StoreQueryResult res = query.store();
         if (res)
         {
+            // 存在
             if (res.num_rows() > 0)
             {
-                LOG4CXX_DEBUG(MySQL::logger, "存在");
                 query.reset();
-                query << "DESC `PLAYER`";
+                query << "DESC `" << descriptor_.table << "`";
 
                 std::set<std::string> fields_db;
-
                 mysqlpp::StoreQueryResult res = query.store();
                 if (res)
                 {
@@ -100,16 +157,15 @@ bool Object2DB<T, T_DBDescriptor>::updateTable()
                     for (it = res.begin(); it != res.end(); ++it)
                     {
                         mysqlpp::Row row = *it;
-                        LOG4CXX_INFO(MySQL::logger, row[0] << "\t" << row[1]);
                         fields_db.insert(row[0].data());
                     }
                 }
 
                 for (auto field : descriptor_.fields)
                 {
+                    // 需要更新
                     if (fields_db.find(field.name) == fields_db.end())
                     {
-                        LOG4CXX_DEBUG(MySQL::logger, "需要更新");
                         query.reset();
                         if (descriptor_.makeAddFieldQuery(query, field.name))
                         {
@@ -118,19 +174,20 @@ bool Object2DB<T, T_DBDescriptor>::updateTable()
                     }
                 }
             }
+            // 不存在则创建
             else
             {
-                LOG4CXX_DEBUG(MySQL::logger, "不存在");
                 query.reset();
                 descriptor_.makeCreateQuery(query);
                 query.execute();
             }
+
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("updateTable, %s", err.what());
         return false;
     }
 
@@ -148,7 +205,7 @@ bool Object2DB<T, T_DBDescriptor>::loadFromDB(Records &records, const char *clau
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("loadFromDB, 无法获取mysql连接");
         return false;
     }
 
@@ -172,7 +229,7 @@ bool Object2DB<T, T_DBDescriptor>::loadFromDB(Records &records, const char *clau
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("updateTable, %s", err.what());
         return false;
     }
 
@@ -188,7 +245,7 @@ bool Object2DB<T, T_DBDescriptor>::deleteFromDB(const char* where, ...)
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("deleteFromDB, 无法获取mysql连接");
         return false;
     }
 
@@ -199,13 +256,12 @@ bool Object2DB<T, T_DBDescriptor>::deleteFromDB(const char* where, ...)
         mysqlpp::SimpleResult res = query.execute();
         if (res)
         {
-            LOG4CXX_INFO(MySQL::logger, "delete ok");
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("deleteFromDB, %s", err.what());
         return false;
     }
 
@@ -219,7 +275,7 @@ bool Object2DB<T, T_DBDescriptor>::insertDB()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("insertFromDB, 无法获取mysql连接");
         return false;
     }
 
@@ -230,13 +286,12 @@ bool Object2DB<T, T_DBDescriptor>::insertDB()
         mysqlpp::SimpleResult res = query.execute();
         if (res)
         {
-            LOG4CXX_INFO(MySQL::logger, "insert ok");
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("insertFromDB, %s", err.what());
         return false;
     }
 
@@ -250,7 +305,7 @@ bool Object2DB<T, T_DBDescriptor>::selectDB()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("selectDB, 无法获取mysql连接");
         return false;
     }
 
@@ -270,7 +325,7 @@ bool Object2DB<T, T_DBDescriptor>::selectDB()
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("selectDB, %s", err.what());
         return false;
     }
 
@@ -284,7 +339,7 @@ bool Object2DB<T, T_DBDescriptor>::replaceDB()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("replaceDB, 无法获取mysql连接");
         return false;
     }
 
@@ -295,13 +350,12 @@ bool Object2DB<T, T_DBDescriptor>::replaceDB()
         mysqlpp::SimpleResult res = query.execute();
         if (res)
         {
-            LOG4CXX_INFO(MySQL::logger, "replace ok");
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("replaceDB, %s", err.what());
         return false;
     }
 
@@ -314,7 +368,7 @@ bool Object2DB<T, T_DBDescriptor>::updateDB()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("updateDB, 无法获取mysql连接");
         return false;
     }
 
@@ -325,13 +379,12 @@ bool Object2DB<T, T_DBDescriptor>::updateDB()
         mysqlpp::SimpleResult res = query.execute();
         if (res)
         {
-            LOG4CXX_INFO(MySQL::logger, "update ok");
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("updateTable, %s", err.what());
         return false;
     }
 
@@ -344,7 +397,7 @@ bool Object2DB<T, T_DBDescriptor>::deleteDB()
     ScopedMySqlConnection mysql;
     if (!mysql)
     {
-        LOG4CXX_ERROR(MySQL::logger, "[TC] Player2DB::dropTable, 无法获取mysql连接")
+        descriptor_.errlog("deleteDB, 无法获取mysql连接");
         return false;
     }
 
@@ -355,13 +408,12 @@ bool Object2DB<T, T_DBDescriptor>::deleteDB()
         mysqlpp::SimpleResult res = query.execute();
         if (res)
         {
-            LOG4CXX_INFO(MySQL::logger, "delete ok");
             return true;
         }
     }
     catch (std::exception& err)
     {
-        LOG4CXX_WARN(MySQL::logger, "mysql error:" << err.what());
+        descriptor_.errlog("deleteDB, %s", err.what());
         return false;
     }
 
