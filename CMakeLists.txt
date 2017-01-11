@@ -4,18 +4,23 @@ project(tinyworld)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 
-# PROJECT
+# INCLUDE DIR
 include_directories(common)
-
-# MYSQL
 include_directories(/usr/local/include)
 include_directories(/usr/include/mysql)
 
+# LINK DIR
+link_directories(common)
 link_directories(/usr/local/lib/)
 link_directories(/usr/lib/)
 
 
-set(LIBS log4cxx apr-1 aprutil-1 iconv)
+set(LIBS
+        tinyworld
+        log4cxx apr-1 aprutil-1 iconv
+        mysqlpp
+        mysqlclient z ssl crypto
+        boost_system boost_thread)
 #
 #set(CMAKE_CXX_FLAGS "-v")
 #set(CMAKE_EXE_LINKER_FLAGS "-v")
