@@ -6,7 +6,7 @@
 #define TINYWORLD_OBJECT2DB_IN_H
 
 template <typename ObjectType>
-void DBDescriptor::makeInsertQuery(mysqlpp::Query &query, const ObjectType& object)
+inline void DBDescriptor::makeInsertQuery(mysqlpp::Query &query, const ObjectType& object)
 {
     query << "INSERT INTO `"<< table << "` (";
     fields2Query(query);
@@ -17,7 +17,7 @@ void DBDescriptor::makeInsertQuery(mysqlpp::Query &query, const ObjectType& obje
 }
 
 template <typename ObjectType>
-void DBDescriptor::makeReplaceQuery(mysqlpp::Query& query, const ObjectType& object)
+inline void DBDescriptor::makeReplaceQuery(mysqlpp::Query& query, const ObjectType& object)
 {
     query << "REPLACE INTO `"<< table << "` (";
     fields2Query(query);
@@ -28,7 +28,7 @@ void DBDescriptor::makeReplaceQuery(mysqlpp::Query& query, const ObjectType& obj
 }
 
 template <typename ObjectType>
-void DBDescriptor::makeUpdateQuery(mysqlpp::Query& query, const ObjectType& object)
+inline void DBDescriptor::makeUpdateQuery(mysqlpp::Query& query, const ObjectType& object)
 {
     query << "UPDATE `" << table << "` SET ";
     pair2Query(query, &object);
@@ -38,7 +38,7 @@ void DBDescriptor::makeUpdateQuery(mysqlpp::Query& query, const ObjectType& obje
 }
 
 template <typename ObjectType>
-void DBDescriptor::makeDeleteQuery(mysqlpp::Query& query, const ObjectType& object)
+inline void DBDescriptor::makeDeleteQuery(mysqlpp::Query& query, const ObjectType& object)
 {
     query << "DELETE FROM `" << table << "` WHERE ";
     key2Query(query, &object);
@@ -46,7 +46,7 @@ void DBDescriptor::makeDeleteQuery(mysqlpp::Query& query, const ObjectType& obje
 }
 
 template <typename ObjectType>
-void DBDescriptor::makeSelectQuery(mysqlpp::Query& query, const ObjectType& object)
+inline void DBDescriptor::makeSelectQuery(mysqlpp::Query& query, const ObjectType& object)
 {
     query << "SELECT ";
     fields2Query(query);
@@ -57,7 +57,7 @@ void DBDescriptor::makeSelectQuery(mysqlpp::Query& query, const ObjectType& obje
 
 
 template <typename ObjectType>
-bool DBDescriptor::loadFromRecord(ObjectType& object, mysqlpp::Row& record)
+inline bool DBDescriptor::loadFromRecord(ObjectType& object, mysqlpp::Row& record)
 {
     return record2Object(record, &object);
 }
@@ -69,7 +69,7 @@ template <typename T, typename T_DBDescriptor>
 T_DBDescriptor Object2DB<T, T_DBDescriptor>::descriptor_;
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::createTable()
+inline bool Object2DB<T, T_DBDescriptor>::createTable()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)
@@ -98,7 +98,7 @@ bool Object2DB<T, T_DBDescriptor>::createTable()
 }
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::dropTable()
+inline bool Object2DB<T, T_DBDescriptor>::dropTable()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)
@@ -127,7 +127,7 @@ bool Object2DB<T, T_DBDescriptor>::dropTable()
 }
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::updateTable()
+inline bool Object2DB<T, T_DBDescriptor>::updateTable()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)
@@ -197,7 +197,7 @@ bool Object2DB<T, T_DBDescriptor>::updateTable()
 ////////////////////////////////////////////////////////////////////
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::loadFromDB(Records &records, const char *clause, ...)
+inline bool Object2DB<T, T_DBDescriptor>::loadFromDB(Records &records, const char *clause, ...)
 {
     char sql[1024] = "";
     FormatArgs(sql, sizeof(sql), clause);
@@ -237,7 +237,7 @@ bool Object2DB<T, T_DBDescriptor>::loadFromDB(Records &records, const char *clau
 }
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::deleteFromDB(const char* where, ...)
+inline bool Object2DB<T, T_DBDescriptor>::deleteFromDB(const char* where, ...)
 {
     char sql[1024] = "";
     FormatArgs(sql, sizeof(sql), where);
@@ -270,7 +270,7 @@ bool Object2DB<T, T_DBDescriptor>::deleteFromDB(const char* where, ...)
 
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::insertDB()
+inline bool Object2DB<T, T_DBDescriptor>::insertDB()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)
@@ -300,7 +300,7 @@ bool Object2DB<T, T_DBDescriptor>::insertDB()
 
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::selectDB()
+inline bool Object2DB<T, T_DBDescriptor>::selectDB()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)
@@ -334,7 +334,7 @@ bool Object2DB<T, T_DBDescriptor>::selectDB()
 
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::replaceDB()
+inline bool Object2DB<T, T_DBDescriptor>::replaceDB()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)
@@ -363,7 +363,7 @@ bool Object2DB<T, T_DBDescriptor>::replaceDB()
 }
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::updateDB()
+inline bool Object2DB<T, T_DBDescriptor>::updateDB()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)
@@ -392,7 +392,7 @@ bool Object2DB<T, T_DBDescriptor>::updateDB()
 }
 
 template <typename T, typename T_DBDescriptor>
-bool Object2DB<T, T_DBDescriptor>::deleteDB()
+inline bool Object2DB<T, T_DBDescriptor>::deleteDB()
 {
     ScopedMySqlConnection mysql;
     if (!mysql)

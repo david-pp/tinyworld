@@ -1,0 +1,23 @@
+# 玩家数据
+---
+Player:
+  - id:
+      type: unsigned int
+      primary_key: true
+      comment: 标识符
+  - name:
+      type: cstring
+      size: 32
+      comment: i am a name
+  - score: float
+  - bin:   string
+#  - error: [1,2]
+
+# 国家数据
+---
+Country:
+  - id:
+      type: unsigned int
+      primary_key: true
+  - name: {type: cstring, size: 32, comment: 这是 名字}
+  - is_strong: bool

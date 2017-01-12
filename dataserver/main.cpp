@@ -77,8 +77,7 @@ public:
 
     bool record2Object(mysqlpp::Row& record, void* objptr)
     {
-        if (record.size() != fields.size())
-            return false;
+        if (record.size() != fields.size()) return false;
 
         ObjectType& object = *(ObjectType*)objptr;
 
