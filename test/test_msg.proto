@@ -1,0 +1,15 @@
+package Cmd;
+
+message LoginRequest {
+
+    // 仅对ProtobufMsgDispatcherByOneID有效
+    enum MsgType { TYPE  = 1024; }
+
+    // 仅对ProtobufMsgDispatcherByTwoID有效
+    enum MsgType1 { TYPE1  = 255; }
+    enum MsgType2 { TYPE2  = 255; }
+
+    required uint32 id   = 1;     // 连接ID
+    required uint32 type = 2;     // 连接类型
+    optional string password = 3; // 验证密码
+}

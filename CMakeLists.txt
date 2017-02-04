@@ -20,7 +20,8 @@ set(LIBS
         log4cxx apr-1 aprutil-1 iconv
         mysqlpp
         mysqlclient z ssl crypto
-        boost_system boost_thread)
+        boost_system boost_thread
+        zmq)
 #
 #set(CMAKE_CXX_FLAGS "-v")
 #set(CMAKE_EXE_LINKER_FLAGS "-v")
@@ -31,3 +32,4 @@ message("LDFLAGS : ${CMAKE_EXE_LINKER_FLAGS}")
 
 add_subdirectory(common)
 add_subdirectory(dataserver)
+add_subdirectory(test)
