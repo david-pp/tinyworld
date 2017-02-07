@@ -1,0 +1,26 @@
+package bin;
+
+message Player {
+	optional uint32 id = 1;
+	optional bytes name = 2;
+	optional float score = 3;
+	optional bytes bin = 4;
+	optional sint32 v_int8 = 5;
+	optional uint32 v_uint8 = 6;
+	optional sint32 v_int16 = 7;
+	optional uint32 v_uint16 = 8;
+	optional sint32 v_int32 = 9;
+	optional uint32 v_uint32 = 10;
+	optional sint64 v_int64 = 11;
+	optional uint64 v_uint64 = 12;
+	optional float v_float = 13;
+	optional double v_double = 14;
+	optional bool v_bool = 15;
+	optional bytes v_string = 16;
+	optional bytes v_char = 17;
+	optional bytes v_bytes = 18;
+	optional bytes v_bytes_tiny = 19;
+	optional bytes v_bytes_medium = 20;
+	optional bytes v_bytes_long = 21;
+}
+
