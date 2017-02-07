@@ -27,8 +27,37 @@ void dumpPlayer(const Player& p)
               << p.score << std::endl;
 }
 
-typedef Object2DB<Player, PlayerDBDescriptor> PlayerDB;
+template <typename T, typename T_BinDescriptor, typename T_DBDescriptor>
+struct SuperObject
+{
+    typedef Object2Bin<T, T_BinDescriptor> BinType;
+    typedef Object2DB <T, T_DBDescriptor>  DBType;
+    typedef Object2DB <BinType, T_DBDescriptor> Type;
+};
+
+typedef Object2DB <Player, PlayerDBDescriptor> PlayerDB;
 typedef Object2Bin<Player, PlayerBinDescriptor> PlayerBin;
+
+////////////////////////////////////////////////////
+typedef SuperObject<Player, PlayerBinDescriptor, PlayerDBDescriptor>::Type SuperPlayer;
+//typedef Object2DB<Object2Bin<Player, PlayerBinDescriptor>, PlayerDBDescriptor> SuperPlayer;
+
+void test_super()
+{
+    SuperPlayer p;
+    p.id = 2;
+    p.selectDB();
+
+    std::cout << p.debugString() << std::endl;
+
+    std::string bin;
+    p.serialize(bin);
+
+    SuperPlayer p2;
+    p2.deserialize(bin);
+
+    std::cout << p2.debugString() << std::endl;
+}
 
 ////////////////////////////////////////////////////
 
@@ -252,6 +281,8 @@ int main(int argc, const char* argv[])
         test_deleteFromDB();
     else if ("testbin" == op)
         test_bin();
+    else if ("testsuper" == op)
+        test_super();
 
     return 0;
 }
