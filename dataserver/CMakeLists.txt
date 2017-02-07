@@ -44,5 +44,5 @@ target_link_libraries(client tinyworld zmq protobuf)
 add_executable(server server.cpp ${PB_CPPOUTS})
 target_link_libraries(server tinyworld zmq protobuf )
 
-add_executable(test_player test_player.cpp ${PB_CPPOUTS})
-target_link_libraries(test_player tinyworld zmq protobuf ${LIBS_BOOST} ${LIBS_MYSQL})
+add_executable(test_player test_player.cpp object2db.cpp ${PB_CPPOUTS})
+target_link_libraries(test_player ${LIBS})

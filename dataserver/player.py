@@ -25,13 +25,13 @@ class PrimitiveTypes(object):
         "int8" : ("int8" , "sint32", "tinyint(3)  NOT NULL default '0'", '0'),
         "int16": ("int16", "sint32", "smallint(5) NOT NULL default '0'", '0'),
         "int32": ("int32", "sint32", "int(10)     NOT NULL default '0'", '0'),
-        "int64": ("int64", "sint32", "bigint(20)  NOT NULL default '0'", '0'),
+        "int64": ("int64", "sint64", "bigint(20)  NOT NULL default '0'", '0'),
 
         # 整数-无符号
         "uint8" : ("uint8" , "uint32", "tinyint(3)  unsigned NOT NULL default '0'", '0'),
         "uint16": ("uint16", "uint32", "smallint(5) unsigned NOT NULL default '0'", '0'),
         "uint32": ("uint32", "uint32", "int(10)     unsigned NOT NULL default '0'", '0'),
-        "uint64": ("uint64", "uint32", "bigint(20)  unsigned NOT NULL default '0'", '0'),
+        "uint64": ("uint64", "uint64", "bigint(20)  unsigned NOT NULL default '0'", '0'),
 
         # 浮点
         "float" : ("float" , "float",  "float NOT NULL default '0'", '0'),
@@ -41,8 +41,8 @@ class PrimitiveTypes(object):
         "bool"   : ("bool",  "bool",  "bool NOT NULL default '0'", 'false'),
 
         # 字符串
-        "string" : ("std::string",  "bytes", "text NOT NULL default ''", ''),
-        "char"   : ("char $$[#]",      "bytes", "varchar(#) NOT NULL default ''", '\"\"'),
+        "string" : ("std::string",  "bytes", "text", ''),
+        "char"   : ("char $$[#]",   "bytes", "varchar(#) NOT NULL default ''", '\"\"'),
 
         # 二进制
         "bytes"  : ("std::string",  "bytes", "blob",       ''),
@@ -146,7 +146,7 @@ class StructField:
         return False
 
     def makeFieldInfo(self):
-        info = { 'name': '`%s`' % self.name.upper(), 'ddl': ''}
+        info = { 'name': '%s' % self.name.upper(), 'ddl': ''}
         typedef = primitive.getTypeDef(self.type)
         if len(typedef) >= 3:
             info['ddl'] = typedef[2]
@@ -179,7 +179,7 @@ class StructDescription:
     def makeFieldList(self, fields):
         flist = ""
         for i in range(len(fields)):
-            flist += '"`%s`"' % fields[i].name.upper()
+            flist += '"%s"' % fields[i].name.upper()
             if i != len(fields)-1:
                 flist += ','
         return flist
@@ -235,10 +235,13 @@ class StructDescription:
         printline(file, depth+1, 'void object2Query(mysqlpp::Query &query, const void* objptr) {')
         printline(file, depth+2,    'const ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.fields)):
-            if self.fields[i].type == 'cstring' or self.fields[i].type == 'string':
+            if self.fields[i].type_proto == 'bytes':
                 printline(file, depth+2, 'query << mysqlpp::quote << object.%s;' % self.fields[i].name)
             else:
-                printline(file, depth+2, 'query << object.%s;' % self.fields[i].name)
+                if self.fields[i].type == 'int8' or self.fields[i].type == 'uint8':
+                    printline(file, depth+2, 'query << (int)object.%s;' % self.fields[i].name)
+                else:
+                    printline(file, depth+2, 'query << object.%s;' % self.fields[i].name)
             if i != len(self.fields)-1:
                 printline(file, depth+2, 'query << ",";')
         printline(file, depth+1, '};')
@@ -248,10 +251,13 @@ class StructDescription:
         printline(file, depth+1, 'void pair2Query(mysqlpp::Query &query, const void* objptr) {')
         printline(file, depth+2,    'const ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.fields)):
-            if self.fields[i].type == 'cstring' or self.fields[i].type == 'string':
+            if self.fields[i].type_proto == 'bytes':
                 printline(file, depth+2, 'query << "`%s`=" << mysqlpp::quote << object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
             else:
-                printline(file, depth+2, 'query << "`%s`=" << object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
+                if self.fields[i].type == 'int8' or self.fields[i].type == 'uint8':
+                    printline(file, depth+2, 'query << "`%s`=" << (int)object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
+                else:
+                    printline(file, depth+2, 'query << "`%s`=" << object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
             if i != len(self.fields)-1:
                 printline(file, depth+2, 'query << ",";')
         printline(file, depth+1, '};')
@@ -261,10 +267,13 @@ class StructDescription:
         printline(file, depth+1, 'void key2Query(mysqlpp::Query &query, const void* objptr){')
         printline(file, depth+2,    'const ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.primary_keys)):
-            if self.primary_keys[i].type == 'cstring' or self.primary_keys[i].type == 'string':
+            if self.primary_keys[i].type_proto == 'bytes':
                 printline(file, depth+2, 'query << "`%s`=" << mysqlpp::quote << object.%s;' % (self.primary_keys[i].name.upper(), self.primary_keys[i].name))
             else:
-                printline(file, depth+2, 'query << "`%s`=" << object.%s;' % (self.primary_keys[i].name.upper(), self.primary_keys[i].name))
+                if self.fields[i].type == 'int8' or self.fields[i].type == 'uint8':
+                    printline(file, depth+2, 'query << "`%s`=" << (int)object.%s;' % (self.primary_keys[i].name.upper(), self.primary_keys[i].name))
+                else:
+                    printline(file, depth+2, 'query << "`%s`=" << object.%s;' % (self.primary_keys[i].name.upper(), self.primary_keys[i].name))
             if i != len(self.primary_keys)-1:
                 printline(file, depth+2, 'query << ",";')
         printline(file, depth+1, '};')
@@ -369,7 +378,7 @@ class TinyCacheCompiler(object):
                 struct.generateProtobuf(0, outfile)
                 outfile.close()
 
-                print os.popen('protoc -I%s --cpp_out=%s %s' % (self.dir_proto, self.dir_proto, protofilename)).read()
+                print os.popen('/usr/local/bin/protoc -I%s --cpp_out=%s %s' % (self.dir_proto, self.dir_proto, protofilename)).read()
 
 
 #######################################################

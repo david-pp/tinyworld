@@ -21,7 +21,8 @@ set(LIBS
         mysqlpp
         mysqlclient z ssl crypto
         boost_system boost_thread
-        zmq)
+        zmq
+        protobuf)
 #
 #set(CMAKE_CXX_FLAGS "-v")
 #set(CMAKE_EXE_LINKER_FLAGS "-v")
