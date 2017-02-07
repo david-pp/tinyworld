@@ -4,7 +4,7 @@
 #include <map>
 #include <queue>
 #include <boost/thread.hpp>
-#include "../common/zmq.hpp"
+#include <zmq.hpp>
 
 void hello()  
 {  

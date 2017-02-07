@@ -1,0 +1,31 @@
+package Cmd;
+
+message RPC {
+    optional uint64 id   = 1;
+    optional bytes  body = 2;
+}
+
+message Get {
+    optional uint64 id_ = 1;
+    optional bytes  type = 2;
+    optional uint32 key = 3;
+}
+
+message GetReply {
+    optional uint64 id_ = 1;
+    optional bytes  type  = 2;
+    optional uint32 key   = 3;
+    optional bytes  value = 4;
+}
+
+message Set {
+    optional bytes  type = 1;
+    optional uint32 key = 2;
+    optional bytes  value = 3;
+}
+
+message SetReply {
+    optional bytes  type   = 1;
+    optional uint32 key    = 2;
+    optional sint32 result = 3;
+}

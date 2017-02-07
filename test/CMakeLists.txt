@@ -6,7 +6,7 @@ set(PROTOS_CPPOUT_DIR   ${CMAKE_CURRENT_SOURCE_DIR})
 
 file(GLOB_RECURSE PROTOS *.proto)
 
-message("${PROTOS}")
+#message("${PROTOS}")
 
 foreach(PB ${PROTOS})
         get_filename_component(PB_NAME ${PB} NAME_WE)
@@ -31,3 +31,5 @@ endforeach(PB ${PROTOS})
 add_executable(test_msg  test_msg.cpp ${PB_CPPOUTS})
 target_link_libraries(test_msg tinyworld protobuf)
 
+add_executable(test_zmq  test.cpp)
+target_link_libraries(test_zmq zmq boost_thread boost_system)
