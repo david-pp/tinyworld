@@ -26,6 +26,9 @@ set(LIBS
 #set(CMAKE_CXX_FLAGS "-v")
 #set(CMAKE_EXE_LINKER_FLAGS "-v")
 
+set(LIBS_BOOST boost_system boost_thread)
+set(LIBS_MYSQL mysqlpp mysqlclient z ssl crypto)
+
 message("COMPILER:   ${CMAKE_CXX_COMPILER}")
 message("CXXFLAGS: ${CMAKE_CXX_FLAGS}")
 message("LDFLAGS : ${CMAKE_EXE_LINKER_FLAGS}")

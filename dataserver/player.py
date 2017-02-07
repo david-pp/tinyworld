@@ -210,8 +210,7 @@ class StructDescription:
 
         printline(file, depth, '};')
 
-    def generateDBDescriptor(self, depth):
-        file = sys.stdout
+    def generateDBDescriptor(self, depth, file = sys.stdout):
         classname = self.name + "DBDescriptor"
         tablename = self.name.upper()
 
@@ -222,12 +221,12 @@ class StructDescription:
 
         # 构造函数
         printline(file, depth+1, '%s() {' % classname)
-        printline(file, depth+2,    'table = "%s"' % tablename)
-        printline(file, depth+2,    'keys = {%s}' % self.makeFieldList(self.primary_keys))
+        printline(file, depth+2,    'table = "%s";' % tablename)
+        printline(file, depth+2,    'keys = {%s};' % self.makeFieldList(self.primary_keys))
         printline(file, depth+2,    'fields = {')
         for f in self.fields:
             info = f.makeFieldInfo()
-            printline(file, depth+3,    '{"%s", "%s"}' % (info['name'], info['ddl']))
+            printline(file, depth+3,    '{"%s", "%s"},' % (info['name'], info['ddl']))
         printline(file, depth+2,    '};')
         printline(file, depth+1, '};')
         printline(file, depth+1, '')
@@ -286,7 +285,18 @@ class StructDescription:
         printline(file, depth+1, '};')
         printline(file, depth+1, '')
 
-        printline(file, 0, '};')
+        printline(file, depth, '};')
+
+    def generateProtobuf(self, depth, file = sys.stdout):
+        printline(file, depth, 'package bin;')
+        printline(file, depth, '')
+        printline(file, depth, 'message %s {' % self.name)
+        for i in range(len(self.fields)):
+            f = self.fields[i]
+            printline(file, depth+1, 'optional %s %s = %d;' % (f.type_proto, f.name, i+1))
+        printline(file, depth, '}')
+        printline(file, depth, '')
+
 
 
 
@@ -349,7 +359,17 @@ class TinyCacheCompiler(object):
                 outfile = open(self.outputFileName(filename, self.dir_struct, 'h'), 'w+')
                 struct.generateStruct(0, outfile)
 
-            # struct.generateDBDescriptor(0)
+            if (self.dir_db):
+                outfile = open(self.outputFileName(filename, self.dir_db, 'db.h'), 'w+')
+                struct.generateDBDescriptor(0, outfile)
+
+            if (self.dir_proto):
+                protofilename = self.outputFileName(filename, self.dir_proto, 'proto')
+                outfile = open(protofilename, 'w+')
+                struct.generateProtobuf(0, outfile)
+                outfile.close()
+
+                print os.popen('protoc -I%s --cpp_out=%s %s' % (self.dir_proto, self.dir_proto, protofilename)).read()
 
 
 #######################################################
