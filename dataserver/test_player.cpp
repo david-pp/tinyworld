@@ -13,6 +13,7 @@
 #include "player.h"
 #include "player.db.h"
 #include "player.pb.h"
+#include "player.bin.h"
 
 LoggerPtr logger(Logger::getLogger("test"));
 
@@ -26,7 +27,70 @@ void dumpPlayer(const Player& p)
 }
 
 
+template <typename T, typename T_BinDescriptor>
+struct Object2Bin : public T
+{
+public:
+    typedef typename T_BinDescriptor::ProtoType ProtoType;
+
+    Object2Bin() {}
+    Object2Bin(const T& object) : T(object) {}
+
+    bool serialize(std::string& bin) const
+    {
+        ProtoType proto;
+        T_BinDescriptor::obj2proto(proto, *this);
+        return proto.SerializeToString(&bin);
+    }
+    bool deserialize(const std::string& bin)
+    {
+        ProtoType proto;
+        if (proto.ParseFromString(bin)) {
+            T_BinDescriptor::proto2obj(*this, proto);
+            return true;
+        }
+        return false;
+    }
+
+    std::string debugString()
+    {
+        ProtoType proto;
+        T_BinDescriptor::obj2proto(proto, *this);
+        return proto.DebugString();
+    }
+};
+
+
 typedef Object2DB<Player, PlayerDBDescriptor> PlayerDB;
+typedef Object2Bin<Player, PlayerBinDescriptor> PlayerBin;
+
+////////////////////////////////////////////////////
+
+void test_bin()
+{
+//    bin::Player player;
+//    player.set_id(10);
+//    player.set_score(45.0);
+//    player.set_name("david");
+//    player.set_v_bool(true);
+//    std::cout << player.DebugString() << std::endl;
+
+    Player p;
+    p.id = 1;
+    strncpy(p.name, "name", sizeof(p.name)-1);
+    p.bin ="binary.....";
+
+    std::string bin;
+
+    PlayerBin pb(p);
+    pb.serialize(bin);
+    std::cout << pb.debugString() << std::endl;
+
+
+    PlayerBin pb2;
+    pb2.deserialize(bin);
+    std::cout << pb2.debugString() << std::endl;
+}
 
 ////////////////////////////////////////////////////
 
@@ -184,14 +248,6 @@ void test_deleteFromDB()
 
 int main(int argc, const char* argv[])
 {
-//    bin::Player player;
-//    player.set_id(10);
-//    player.set_score(45.0);
-//    player.set_name("david");
-//    player.set_v_bool(true);
-//    std::cout << player.DebugString() << std::endl;
-
-
     if (argc < 2)
     {
         std::cout << "Usage:" << argv[0]
@@ -229,6 +285,8 @@ int main(int argc, const char* argv[])
         test_loadFromDB();
     else if ("deleteFromDB" == op)
         test_deleteFromDB();
+    else if ("testbin" == op)
+        test_bin();
 
     return 0;
 }

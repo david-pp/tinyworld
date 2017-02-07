@@ -285,7 +285,7 @@ class StructDescription:
         printline(file, depth+2,    'ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.fields)):
             f = self.fields[i]
-            if f.type.find('char') ==0:
+            if f.type.find('char') == 0:
                 printline(file, depth+2, 'strncpy(object.%s, record[%u].data(), sizeof(object.%s)-1);' % (f.name, i, f.name))
             elif f.type_cpp == 'std::string':
                 printline(file, depth+2, 'object.%s.assign(record[%u].data(), record[%u].size());' % (f.name, i, i))
@@ -305,6 +305,31 @@ class StructDescription:
             printline(file, depth+1, 'optional %s %s = %d;' % (f.type_proto, f.name, i+1))
         printline(file, depth, '}')
         printline(file, depth, '')
+
+    def generateBinDescriptor(self, depth, file = sys.stdout):
+        classname = self.name + "BinDescriptor"
+
+        printline(file, depth, 'struct %s {' % classname)
+        printline(file, depth+1, "typedef %s ObjectType;" % self.name)
+        printline(file, depth+1, "typedef bin::%s ProtoType;" % self.name)
+        printline(file, depth+1, "")
+
+        printline(file, depth+1, "static void obj2proto(ProtoType& proto, const ObjectType& object) {")
+        for f in self.fields:
+            printline(file, depth+2, "proto.set_%s(object.%s);" % (f.name, f.name))
+        printline(file, depth+1, "}")
+        printline(file, depth+1, "")
+
+        printline(file, depth+1, "static void proto2obj(ObjectType& object, const ProtoType& proto) {")
+        for f in self.fields:
+            if f.type.find('char') == 0:
+                printline(file, depth+2, "strncpy(object.%s, proto.%s().c_str(), sizeof(object.%s)-1);" % (f.name, f.name, f.name))
+            else:
+                printline(file, depth+2, "object.%s = proto.%s();" % (f.name, f.name))
+        printline(file, depth+1, "}")
+        printline(file, depth, '};')
+
+
 
 
 
@@ -373,12 +398,20 @@ class TinyCacheCompiler(object):
                 struct.generateDBDescriptor(0, outfile)
 
             if (self.dir_proto):
+                # 生成.proto文件
                 protofilename = self.outputFileName(filename, self.dir_proto, 'proto')
                 outfile = open(protofilename, 'w+')
                 struct.generateProtobuf(0, outfile)
                 outfile.close()
 
+                # 生成proto对应的c++文件
                 print os.popen('/usr/local/bin/protoc -I%s --cpp_out=%s %s' % (self.dir_proto, self.dir_proto, protofilename)).read()
+
+                # 生成BinDescriptor文件
+                outfile = open(self.outputFileName(filename, self.dir_db, 'bin.h'), 'w+')
+                struct.generateBinDescriptor(0, outfile)
+                outfile.close()
+
 
 
 #######################################################
