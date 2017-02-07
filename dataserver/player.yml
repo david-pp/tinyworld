@@ -2,22 +2,39 @@
 ---
 Player:
   - id:
-      type: unsigned int
+      type: uint32
       primary_key: true
       comment: 标识符
   - name:
-      type: cstring
-      size: 32
+      type: char[32]
       comment: i am a name
   - score: float
   - bin:   string
+  - v_int8  : int8
+  - v_uint8 : uint8
+  - v_int16 : int16
+  - v_uint16: uint16
+  - v_int32 : int32
+  - v_uint32: uint32
+  - v_int64 : int64
+  - v_uint64 : uint64
+  - v_float : float
+  - v_double : double
+  - v_bool : bool
+  - v_string : string
+  - v_char : char[32]
+  - v_bytes : bytes
+  - v_bytes_tiny : bytes8
+  - v_bytes_medium : bytes24
+  - v_bytes_long : bytes32
+
 #  - error: [1,2]
 
 # 国家数据
----
-Country:
-  - id:
-      type: unsigned int
-      primary_key: true
-  - name: {type: cstring, size: 32, comment: 这是 名字}
-  - is_strong: bool
+#---
+#Country:
+#  - id:
+#      type: unsigned int
+#      primary_key: true
+#  - name: {type: cstring, size: 32, comment: 这是 名字}
+#  - is_strong: bool
