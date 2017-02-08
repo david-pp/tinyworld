@@ -9,82 +9,6 @@
 #include "message_dispatcher.h"
 #include "command.pb.h"
 
-//ProtobufMsgDispatcherByName dispatcher;
-//
-////  Prepare our context and sockets
-//zmq::context_t* context = NULL;
-//zmq::socket_t*  socket = NULL;
-//
-//
-//void on_recv(zmq::message_t& request)
-//{
-//    MessageHeader* header = (MessageHeader*)request.data();
-//
-//    std::cout << header->dumphex() << std::endl;
-//
-//    if (header->msgsize() == request.size())
-//    {
-//        dispatcher.dispatch(header);
-//    }
-//}
-//
-//template <typename MSG>
-//void sendMsg(MSG& proto)
-//{
-//    std::string msgbuf;
-//    ProtobufMsgDispatcherByName::pack(msgbuf, &proto);
-//    zmq::message_t reply(msgbuf.data(), msgbuf.size());
-//
-//    socket->send(reply);
-//}
-//
-//void asyncclient(int i)
-//{
-//    //  Prepare our context and socket
-//    try {
-//        context = new zmq::context_t(1);
-//        socket =  new zmq::socket_t(*context, ZMQ_DEALER);
-//        std::ostringstream id;
-//        id << "aclient" << i;
-//        socket->setsockopt (ZMQ_IDENTITY, id.str().data(), id.str().size());
-//
-//        std::cout << "Connecting to hello world server..." << std::endl;
-//        socket->connect ("tcp://localhost:5555");
-//
-//        zmq::pollitem_t items[] = { { *socket, 0, ZMQ_POLLIN, 0 } };
-//        while (true)
-//        {
-//            int rc = zmq_poll (&items[0], 1, 1000);
-//            if (-1 != rc)
-//            {
-//                //  If we got a reply, process it
-//                if (items[0].revents & ZMQ_POLLIN)
-//                {
-//                    zmq::message_t request;
-//                    socket->recv (&request);
-//
-//                    on_recv(request);
-//                }
-//            }
-//
-//            Cmd::Get get;
-//            get.set_type("CHARBASE");
-//            get.set_key(2222);
-//            sendMsg(get);
-//        }
-//    }
-//    catch (std::exception& err)
-//    {
-//        std::cout << "!!!!" << err.what() << std::endl;
-//    }
-//}
-//
-//void onGetReply(Cmd::GetReply* msg)
-//{
-//    std::cout << msg->DebugString() << std::endl;
-//}
-
-
 struct CallbackHolderBase
 {
 public:
@@ -433,6 +357,26 @@ namespace tc {
     };
 }
 
+void test_rpc()
+{
+#if 0
+    Request req;
+    c->rpc(req)
+        .done([](const Reply& reply) {
+        })
+
+    Server;
+    s->on<Request>([](const Request& request) {
+            Reply rep;
+            return rep;
+       })
+       .on<Request2>([](const Request2& requeset) {
+            Reply2 rep;
+            return rep;
+       })
+}
+#endif
+}
 
 void test_api()
 {
