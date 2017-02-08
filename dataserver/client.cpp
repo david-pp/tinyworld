@@ -85,6 +85,206 @@
 //}
 
 
+struct CallbackHolderBase
+{
+public:
+    CallbackHolderBase()
+    {
+        id_ = ++total_id_;
+        createtime_ = std::chrono::high_resolution_clock::now();
+    }
+
+    long elapsed_ms()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::high_resolution_clock::now() - createtime_).count();
+    }
+
+    long elpased_ns()
+    {
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::high_resolution_clock::now() - createtime_).count();
+    }
+
+    bool isTimeout()
+    {
+        return timeout_ms_ < 0 ? false : elapsed_ms() > timeout_ms_;
+    }
+
+    void setTimeout(long ms)
+    {
+        timeout_ms_ = ms;
+    }
+
+    virtual void called(void* data) = 0;
+    virtual void timeouted() {}
+
+
+public:
+    static uint64 total_id_;
+
+    typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
+
+    /// 唯一标识
+    uint64    id_;
+    /// 创建时间点
+    TimePoint createtime_;
+    /// 超时时长
+    long      timeout_ms_;
+};
+
+typedef std::shared_ptr<CallbackHolderBase> CallbackHolderPtr;
+
+
+template <typename T>
+struct GetCBHolder : public CallbackHolderBase
+{
+public:
+    typedef T ObjectType;
+    typedef typename T::KeyType KeyType;
+
+    typedef std::function<void(const ObjectType& value)> Callback;
+    typedef std::function<void(const KeyType& key)> ErrorCallback;
+
+    GetCBHolder(const KeyType& key)
+            : key_(key) {}
+
+    virtual void called(void* data)
+    {
+        std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+        ObjectType obj;
+        KeyType key;
+        if (cb_done_)
+            cb_done_(obj);
+
+        if (cb_timeout_)
+            cb_timeout_(key);
+
+        if (cb_nonexist_)
+            cb_nonexist_(key);
+    }
+
+    GetCBHolder<T>& done(const Callback& cb)
+    {
+        cb_done_ = cb;
+        return *this;
+    }
+
+    GetCBHolder<T>& timeout(const ErrorCallback& cb, long ms = 200)
+    {
+        setTimeout(ms);
+        cb_timeout_ = cb;
+        return *this;
+    }
+
+    GetCBHolder<T>& nonexist(const ErrorCallback& cb)
+    {
+        cb_nonexist_ = cb;
+        return *this;
+    }
+
+private:
+    KeyType       key_;
+    Callback      cb_done_;
+    ErrorCallback cb_timeout_;
+    ErrorCallback cb_nonexist_;
+};
+
+
+template <typename T>
+struct SetCBHolder : public CallbackHolderBase
+{
+public:
+    typedef T ObjectType;
+    typedef typename T::KeyType KeyType;
+
+    typedef std::function<void(const ObjectType& value)> Callback;
+    typedef std::function<void(const ObjectType& value)> ErrorCallback;
+
+    SetCBHolder(const KeyType& key, const ObjectType& obj)
+            : key_(key), object_(obj) {}
+
+    virtual void called(void* data)
+    {
+        std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+        ObjectType obj;
+        KeyType key;
+        if (cb_done_)
+            cb_done_(obj);
+
+        if (cb_timeout_)
+            cb_timeout_(obj);
+    }
+
+    SetCBHolder<T>& done(const Callback& cb)
+    {
+        cb_done_ = cb;
+        return *this;
+    }
+
+    SetCBHolder<T>& timeout(const ErrorCallback& cb, long ms = 200)
+    {
+        setTimeout(ms);
+        cb_timeout_ = cb;
+        return *this;
+    }
+
+private:
+    KeyType       key_;
+    ObjectType    object_;
+    Callback      cb_done_;
+    ErrorCallback cb_timeout_;
+};
+
+template <typename T>
+struct DelCBHolder : public CallbackHolderBase
+{
+public:
+    typedef T ObjectType;
+    typedef typename T::KeyType KeyType;
+
+    typedef std::function<void(const KeyType& key)> Callback;
+    typedef std::function<void(const KeyType& key)> ErrorCallback;
+
+    DelCBHolder(const KeyType& key)
+            : key_(key){}
+
+    virtual void called(void* data)
+    {
+        std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+        ObjectType obj;
+        KeyType key;
+        if (cb_done_)
+            cb_done_(key);
+
+        if (cb_timeout_)
+            cb_timeout_(key);
+    }
+
+    DelCBHolder<T>& done(const Callback& cb)
+    {
+        cb_done_ = cb;
+        return *this;
+    }
+
+    DelCBHolder<T>& timeout(const ErrorCallback& cb, long ms = 200)
+    {
+        setTimeout(ms);
+        cb_timeout_ = cb;
+        return *this;
+    }
+
+private:
+    KeyType       key_;
+    ObjectType    object_;
+    Callback      cb_done_;
+    ErrorCallback cb_timeout_;
+};
+
+
 class AsyncTinyCacheClient
 {
 public:
@@ -127,74 +327,41 @@ public:
         return true;
     }
 
-    struct CallbackHolderBase
-    {
-    public:
-        CallbackHolderBase()
-        {
-            id_ = ++total_id_;
-            createtime_ = std::chrono::high_resolution_clock::now();
-        }
-
-        long elapsed_ms()
-        {
-            return std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::high_resolution_clock::now() - createtime_).count();
-        }
-
-        long elpased_ns()
-        {
-            return std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::high_resolution_clock::now() - createtime_).count();
-        }
-
-        virtual void called(void* data) = 0;
-        virtual void timeouted() {}
-
-    public:
-        static uint64 total_id_;
-
-        uint64 id_;
-        std::chrono::time_point<std::chrono::high_resolution_clock> createtime_;
-    };
-
-    typedef std::shared_ptr<CallbackHolderBase> CallbackHolderPtr;
-
-
 
     template <typename T>
-    struct CallbackHolderT : public CallbackHolderBase
+    GetCBHolder<T>& get(const typename T::KeyType& key)
     {
-    public:
-        typedef std::function<void(int retcode, const T& value)> Callback;
-
-        CallbackHolderT(const Callback& cb)
-                : callback_(cb) {}
-
-        virtual void called(void* data)
-        {
-            T value;
-            callback_(0, value);
-        }
-
-    private:
-        Callback callback_;
-    };
-
-
-    template <typename T>
-    bool get(uint32 key, const std::function<void(int retcode, const T& value)>& callback)
-    {
-        CallbackHolderPtr holder(new CallbackHolderT<T>(callback));
-        callbacks_.insert(std::make_pair(holder->id_, holder));
-
-        Cmd::Get send;
-        send.set_id_(holder->id_);
-        send.set_key(key);
-        sendCmd(send);
-
-        return true;
+        GetCBHolder<T>* holder = new GetCBHolder<T>(key);
+        CallbackHolderPtr holder_ptr(holder);
+        callbacks_[holder->id_] = holder_ptr;
+        return *holder;
     }
+
+    template <typename T>
+    SetCBHolder<T>& set(const T& value)
+    {
+        SetCBHolder<T>* holder = new SetCBHolder<T>(value.key(), value);
+        CallbackHolderPtr holder_ptr(holder);
+        callbacks_[holder->id_] = holder_ptr;
+        return *holder;
+    }
+
+    template <typename T>
+    DelCBHolder<T>& del(const typename T::KeyType& key)
+    {
+        DelCBHolder<T>* holder = new DelCBHolder<T>(key);
+        CallbackHolderPtr holder_ptr(holder);
+        callbacks_[holder->id_] = holder_ptr;
+        return *holder;
+    }
+
+////        CallbackHolderPtr holder(new CallbackHolderT<T>(callback));
+////        callbacks_.insert(std::make_pair(holder->id_, holder));
+////
+////        Cmd::Get send;
+////        send.set_id_(holder->id_);
+////        send.set_key(key);
+////        sendCmd(send);
 
 
     template <typename MSG>
@@ -241,29 +408,76 @@ private:
 };
 
 
-uint64 AsyncTinyCacheClient::CallbackHolderBase::total_id_ = 0;
+uint64 CallbackHolderBase::total_id_ = 0;
 
-struct CharBase
+
+#include "tinyworld.h"
+#include "mylogger.h"
+#include "mydb.h"
+
+#include "object2db.h"
+#include "object2bin.h"
+
+#include "player.h"
+#include "player.db.h"
+#include "player.pb.h"
+#include "player.bin.h"
+
+namespace tc {
+    typedef Object2DB<Object2Bin<Player, PlayerBinDescriptor>, PlayerDBDescriptor> SuperPlayer;
+
+    struct Player : public SuperPlayer {
+        typedef uint32 KeyType;
+
+        KeyType key() const { return id; }
+    };
+}
+
+
+void test_api()
 {
-};
+    std::shared_ptr<AsyncTinyCacheClient> tc(new AsyncTinyCacheClient);
 
+    int local_value = 22;
 
-int main () {
-//    dispatcher.bind<Cmd::GetReply>(onGetReply);
-//    asyncclient(1);
+    tc->get<tc::Player>(255)
+            .done([&](const tc::Player& value){
+                // 获取成功
+                std::cout << "获取成功" << std::endl;
+
+                tc->set<tc::Player>(value)
+                        .done([](const tc::Player& value){
+                            std::cout << "Set成功" << std::endl;
+                        })
+                        .timeout([tc](const tc::Player& value){
+                            std::cout << "Set超时" << std::endl;
+
+                            tc->del<tc::Player>(1111).called(NULL);
+
+                        }, 600)
+                        .called(NULL);
+            })
+            .nonexist([](const uint32& key){
+                // 指定的玩家数据不存在
+                std::cout << "指定玩家数据不存在" << std::endl;
+            })
+            .timeout([](const uint32& key){
+                // 操作超时
+                std::cout << "操作超时" << std::endl;
+            })
+            .called(NULL);
+}
+
+int main ()
+{
+    test_api();
+    return 0;
 
     AsyncTinyCacheClient tc;
     tc.connect("tcp://localhost:5555");
     while(true)
     {
         tc.poll(1000);
-
-        tc.get<CharBase>(255, [](int retcode, const CharBase& value) {
-            if (retcode == 0)
-            {
-            }
-            std::cout << "callback...." << std::endl;
-        });
 
     }
     return 0;

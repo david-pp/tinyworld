@@ -38,7 +38,7 @@ target_link_libraries(dataserver ${LIBS})
 
 
 add_executable(client client.cpp ${PB_CPPOUTS})
-target_link_libraries(client tinyworld zmq protobuf)
+target_link_libraries(client ${LIBS})
 
 
 add_executable(server server.cpp ${PB_CPPOUTS})
