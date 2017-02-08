@@ -7,9 +7,23 @@ message Request {
     optional bytes  body    = 4;
 }
 
+
+enum ErrorCode {
+    NOERROR              = 0;  // 没有错误
+
+    REQUEST_INVALID      = 1;  // Server:无效的请求
+    REQUEST_NOT_MATCHED  = 2;  // Server:请求不匹配
+    REQUEST_PARSE_ERROR  = 3;  // Server:请求解包失败
+    REPLY_PACK_ERROR     = 10; // Server:回复打包失败
+
+    REPLY_NOT_MATCHED    = 11; // Client:回复不匹配
+    REPLY_PARSE_ERROR    = 12; // Client:回复解包失败
+}
+
 message Reply {
     optional uint64 id      = 1;
     optional string request = 2;
     optional string reply   = 3;
     optional bytes  body    = 4;
+    optional ErrorCode errcode = 5;
 }

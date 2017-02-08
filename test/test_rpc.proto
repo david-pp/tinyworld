@@ -7,4 +7,5 @@ message GetRequest {
 }
 
 message GetReply {
+    optional string result = 1;
 }

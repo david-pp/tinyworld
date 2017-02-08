@@ -29,5 +29,5 @@ foreach(PB ${PROTOS})
 endforeach(PB ${PROTOS})
 
 #file(GLOB SRCFILES *.cpp)
-set(SRCFILES mydb.cpp url.cpp ${PB_CPPOUT})
+set(SRCFILES mydb.cpp url.cpp rpc.cpp ${PB_CPPOUT})
 add_library(tinyworld STATIC ${SRCFILES})
