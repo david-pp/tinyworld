@@ -207,6 +207,15 @@ public:
     typedef std::shared_ptr<ProtobufMsgHandler<ArgTypes...> > ProtobufMsgHandlerPtr;
 
     //
+    // 全局单件
+    //
+    static ProtobufMsgDispatcherByName<ArgTypes...>& instance()
+    {
+        static ProtobufMsgDispatcherByName<ArgTypes...> instance_;
+        return instance_;
+    }
+
+    //
     // 注册消息处理函数，可以是普通函数、函数对象、成员函数、lambda等可执行体
     //
     template <typename MSG>

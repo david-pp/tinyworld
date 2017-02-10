@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "tinyworld.h"
+#include "message_dispatcher.h"
 #include "rpc.pb.h"
 
 
@@ -168,7 +169,7 @@ public:
         return *holder;
     }
 
-    bool replied(const rpc::Reply& reply)
+    void replied(const rpc::Reply& reply)
     {
         auto it = rpc_holders_.find(reply.id());
         if (it != rpc_holders_.end())
@@ -176,9 +177,7 @@ public:
             it->second->replied(reply);
             rpc_timeout_holders_.erase(it->first);
             rpc_holders_.erase(it);
-            return true;
         }
-        return false;
     }
 
     size_t checkTimeout()
@@ -209,6 +208,38 @@ private:
 
     RPCHolderMap rpc_holders_;
     RPCHolderMap rpc_timeout_holders_;
+};
+
+
+
+template <typename Client>
+class AsyncProtobufRPCClient : public Client
+{
+public:
+    AsyncProtobufRPCClient()
+            : Client(msg_dispatcher_instance_)
+    {
+        msg_dispatcher_instance_
+                .on<rpc::Reply>(std::bind(&ProtobufRPCEmitter::replied, &rpc_emitter_, std::placeholders::_1));
+    }
+
+    template <typename Request, typename Reply>
+    ProtoRPCHolder<Request, Reply>& emit(const Request& request)
+    {
+        auto& holder = rpc_emitter_.emit<Request, Reply>(request);
+
+        rpc::Request rpc_req;
+        holder.pack(rpc_req);
+        this->sendMsg(rpc_req);
+        return holder;
+    }
+
+    size_t checkTimeout() { return rpc_emitter_.checkTimeout(); }
+
+private:
+    ProtobufRPCEmitter rpc_emitter_;
+
+    ProtobufMsgDispatcherByName<> msg_dispatcher_instance_;
 };
 
 

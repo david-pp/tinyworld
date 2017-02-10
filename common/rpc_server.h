@@ -102,5 +102,37 @@ private:
 
 
 
+template <typename Server>
+class AsyncProtobufRPCServer : public Server
+{
+public:
+    AsyncProtobufRPCServer()
+            : Server(msg_dispatcher_instance_)
+    {
+        msg_dispatcher_instance_
+                .on<rpc::Request>(std::bind(&AsyncProtobufRPCServer<Server>::doMsgRequest,
+                                            this, std::placeholders::_1, std::placeholders::_2));
+    }
+
+    template <typename Request, typename Reply>
+    ProtobufRPCDispatcher& on(const typename ProtoRPCCallbackHolder<Request, Reply>::Callback& callback)
+    {
+        return rpc_dispatcher.on<Request, Reply>(callback);
+    }
+
+    void doMsgRequest(const rpc::Request& msg, const std::string& client)
+    {
+        rpc::Reply rpc_rep = rpc_dispatcher.requested(msg);
+        this->sendMsg(client, rpc_rep);
+    }
+
+private:
+    ProtobufRPCDispatcher rpc_dispatcher;
+
+    ProtobufMsgDispatcherByName<const std::string&> msg_dispatcher_instance_;
+};
+
+
+
 
 #endif //TINYWORLD_RPC_SERVER_H
