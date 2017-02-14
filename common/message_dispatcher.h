@@ -257,6 +257,10 @@ public:
                 return true;
             }
         }
+        else
+        {
+            std::cout << "ERROR:" << msgname << std::endl;
+        }
 
         return false;
     }

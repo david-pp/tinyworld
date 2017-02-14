@@ -42,8 +42,11 @@ public:
             //  If we got a reply, process it
             if (items[0].revents & ZMQ_POLLIN)
             {
+                zmq::message_t empty;
                 zmq::message_t request;
-                socket_->recv (&request);
+
+                socket_->recv(&empty);
+                socket_->recv(&request);
 
                 this->on_recv(request);
             }
@@ -57,7 +60,10 @@ public:
     {
         std::string msgbuf;
         ProtobufMsgHandlerBase::packByName(msgbuf, proto);
+
+        zmq::message_t empty;
         zmq::message_t msg(msgbuf.data(), msgbuf.size());
+        socket_->send(empty, ZMQ_SNDMORE);
         socket_->send(msg);
     }
 
