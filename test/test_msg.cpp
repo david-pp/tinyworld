@@ -29,7 +29,7 @@ void test_byname()
 
     // 打包
     std::string msgbuf;
-    ProtobufMsgHandlerBase::packByName(msgbuf, send);
+    ProtobufMsgDispatcherByName<>::pack(msgbuf, send);
 
     MessageHeader* header = (MessageHeader*)msgbuf.data();
     std::cout << header->dumphex() << std::endl;
@@ -50,7 +50,6 @@ void test_byname()
             d.dispatch(header, 100, &obj);
         }
 
-
         // 测试消息分发-无参数/有返回值
         {
             ProtobufMsgDispatcherByName<int, Object*> d;
@@ -63,22 +62,23 @@ void test_byname()
                 return reply;
             });
 
+            d.on<Cmd::LoginReply>([](const Cmd::LoginReply &msg, int a1, Object *a2) {
+                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+                std::cout << msg.DebugString() << std::endl;
+                std::cout << "arg1:" << a1 << std::endl;
+                std::cout << "arg2:" << a2->v << std::endl;
+            });
+
             auto reply = d.dispatch(header, 100, &obj);
             if (reply)
             {
-                std::cout << reply->DebugString() << std::endl;
+                d.dispatch((MessageHeader*)reply->data(), 200, &obj);
             }
         }
 
         // 测试消息分发-多参数
         {
             ProtobufMsgDispatcherByName<int, Object *> d;
-//            d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
-//                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-//                std::cout << msg.DebugString() << std::endl;
-//                std::cout << "arg1:" << a1 << std::endl;
-//                std::cout << "arg2:" << a2->v << std::endl;
-//            });
 
             d.on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
                 std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
@@ -91,10 +91,17 @@ void test_byname()
                 return reply;
             });
 
-            auto reply = d.dispatch(header, 100, &obj);
-            if (reply)
+            d.on<Cmd::LoginReply>([](const Cmd::LoginReply &msg, int a1, Object *a2) {
+                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+                std::cout << msg.DebugString() << std::endl;
+                std::cout << "arg1:" << a1 << std::endl;
+                std::cout << "arg2:" << a2->v << std::endl;
+            });
+
+            auto replybin = d.dispatch(header, 100, &obj);
+            if (replybin)
             {
-                std::cout << reply->DebugString() << std::endl;
+                d.dispatch((MessageHeader*)replybin->data(), 200, &obj);
             }
         }
 

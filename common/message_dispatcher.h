@@ -49,8 +49,9 @@ private:
 class ProtobufMsgHandlerBase
 {
 public:
-    typedef google::protobuf::Message Message;
-    typedef std::shared_ptr<Message>  MessagePtr;
+    typedef google::protobuf::Message    Message;
+    typedef std::shared_ptr<Message>     MessagePtr;
+    typedef std::shared_ptr<std::string> BufPtr;
 
 public:
     ProtobufMsgHandlerBase(uint16 msgtype = 0, const std::string& msgname = "")
@@ -165,10 +166,10 @@ struct ProtobufMsgHandler : public ProtobufMsgHandlerBase
     // 处理Proto消息
     //
     // 返回值
-    //  - NULL  : 无返回值
-    //  - Proto : 回调有返回
+    //  - NULL   : 无返回值
+    //  - BUF指针 : 回调有返回
     //
-    virtual MessagePtr process(MessagePtr msg, ArgTypes... args) const = 0;
+    virtual BufPtr process(MessagePtr msg, ArgTypes... args) const = 0;
 };
 
 ///////////////////////////////////////////////////////////
@@ -176,92 +177,114 @@ struct ProtobufMsgHandler : public ProtobufMsgHandlerBase
 // 消息处理形如：ReplyMSG handler(const RequestMSG& message, ArgTypes...)
 //
 ///////////////////////////////////////////////////////////
-template <typename RequestMSG, typename ReplyMSG, typename... ArgTypes>
+template <typename Disptacher, typename RequestMSG, typename ReplyMSG, typename... ArgTypes>
 class ProtobufMsgHandlerT_N : public ProtobufMsgHandler<ArgTypes...>
 {
 public:
     typedef std::function<ReplyMSG(const RequestMSG& msg, ArgTypes... args)> Handler;
 
-    ProtobufMsgHandlerT_N(uint16 msgtype,  const std::string& msgname, const Handler& handler)
-            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), handler_(handler) {}
+    ProtobufMsgHandlerT_N(Disptacher& dispatcher,
+                          uint16 msgtype,
+                          const std::string& msgname,
+                          const Handler& handler)
+            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), dispatcher_(dispatcher), handler_(handler) {}
 
     ProtobufMsgHandlerBase::Message* newMessage() final { return new RequestMSG; }
 
-    ProtobufMsgHandlerBase::MessagePtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
+    ProtobufMsgHandlerBase::BufPtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
     {
-        ProtobufMsgHandlerBase::MessagePtr replyptr(new ReplyMSG(handler_(*(RequestMSG*)msg.get(), args...)));
-        return replyptr;
+        ReplyMSG reply = handler_(*(RequestMSG*)msg.get(), args...);
+
+        ProtobufMsgHandlerBase::BufPtr bufptr(new std::string);
+        Disptacher::pack(*bufptr.get(), reply);
+        return bufptr;
     }
 
 private:
+    Disptacher& dispatcher_;
     Handler handler_;
 };
 
-template <typename RequestMSG, typename... ArgTypes>
-class ProtobufMsgHandlerT_N<RequestMSG, void, ArgTypes...> : public ProtobufMsgHandler<ArgTypes...>
+template <typename Disptacher, typename RequestMSG, typename... ArgTypes>
+class ProtobufMsgHandlerT_N<Disptacher, RequestMSG, void, ArgTypes...> : public ProtobufMsgHandler<ArgTypes...>
 {
 public:
     typedef std::function<void(const RequestMSG& msg, ArgTypes... args)> Handler;
 
-    ProtobufMsgHandlerT_N(uint16 msgtype,  const std::string& msgname, const Handler& handler)
-            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), handler_(handler) {}
+    ProtobufMsgHandlerT_N(Disptacher& dispatcher,
+                          uint16 msgtype,
+                          const std::string& msgname,
+                          const Handler& handler)
+            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), dispatcher_(dispatcher), handler_(handler) {}
 
     ProtobufMsgHandlerBase::Message* newMessage() final { return new RequestMSG; }
 
-    ProtobufMsgHandlerBase::MessagePtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
+    ProtobufMsgHandlerBase::BufPtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
     {
         handler_(*(RequestMSG*)msg.get(), args...);
-        return ProtobufMsgHandlerBase::MessagePtr();
+        return ProtobufMsgHandlerBase::BufPtr();
     }
 
 private:
+    Disptacher& dispatcher_;
     Handler handler_;
 };
 
 ///////////////////////////////////////////////////////////
 //
-// 消息处理形如：void handler(void)
+// 消息处理形如：ReplyMSG handler(void)
 //
 ///////////////////////////////////////////////////////////
-template <typename RequestMSG, typename ReplyMSG, typename... ArgTypes>
+template <typename Disptacher, typename RequestMSG, typename ReplyMSG, typename... ArgTypes>
 class ProtobufMsgHandlerT_Void : public ProtobufMsgHandler<ArgTypes...>
 {
 public:
     typedef std::function<ReplyMSG(void)> Handler;
 
-    ProtobufMsgHandlerT_Void(uint16 msgtype,  const std::string& msgname, const Handler& handler)
-            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), handler_(handler) {}
+    ProtobufMsgHandlerT_Void(Disptacher &dispatcher,
+                             uint16 msgtype,
+                             const std::string &msgname,
+                             const Handler &handler)
+            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), dispatcher_(dispatcher), handler_(handler) {}
 
     ProtobufMsgHandlerBase::Message* newMessage() final { return new RequestMSG; }
 
-    ProtobufMsgHandlerBase::MessagePtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
+    ProtobufMsgHandlerBase::BufPtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
     {
-        ProtobufMsgHandlerBase::MessagePtr replyptr(new ReplyMSG(handler_()));
-        return replyptr;
+        ReplyMSG reply = handler_();
+
+        ProtobufMsgHandlerBase::BufPtr bufptr(new std::string);
+        Disptacher::pack(*bufptr.get(), reply);
+        return bufptr;
     }
 
 private:
+    Disptacher& dispatcher_;
     Handler handler_;
 };
 
-template <typename RequestMSG, typename... ArgTypes>
-class ProtobufMsgHandlerT_Void<RequestMSG, void, ArgTypes...> : public ProtobufMsgHandler<ArgTypes...>
+template <typename Disptacher, typename RequestMSG, typename... ArgTypes>
+class ProtobufMsgHandlerT_Void<Disptacher, RequestMSG, void, ArgTypes...> : public ProtobufMsgHandler<ArgTypes...>
 {
 public:
     typedef std::function<void(void)> Handler;
 
-    ProtobufMsgHandlerT_Void(uint16 msgtype,  const std::string& msgname, const Handler& handler)
-            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), handler_(handler) {}
+    ProtobufMsgHandlerT_Void(Disptacher &dispatcher,
+                             uint16 msgtype,
+                             const std::string &msgname,
+                             const Handler &handler)
+            : ProtobufMsgHandler<ArgTypes...>(msgtype, msgname), dispatcher_(dispatcher), handler_(handler) {}
 
     ProtobufMsgHandlerBase::Message* newMessage() final { return new RequestMSG; }
 
-    ProtobufMsgHandlerBase::MessagePtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
+    ProtobufMsgHandlerBase::BufPtr process(ProtobufMsgHandlerBase::MessagePtr msg,  ArgTypes... args) const final
     {
         handler_();
-        return ProtobufMsgHandlerBase::MessagePtr();
+        return ProtobufMsgHandlerBase::BufPtr();
     }
 
 private:
+    Disptacher& dispatcher_;
     Handler handler_;
 };
 
@@ -274,6 +297,7 @@ template <typename... ArgTypes>
 class ProtobufMsgDispatcherByName
 {
 public:
+    typedef ProtobufMsgDispatcherByName<ArgTypes...>  DispatcherType;
     typedef std::shared_ptr<ProtobufMsgHandler<ArgTypes...> > ProtobufMsgHandlerPtr;
 
     //
@@ -289,32 +313,32 @@ public:
     // 注册消息处理函数，可以是普通函数、函数对象、成员函数、lambda等可执行体
     //
     template <typename RequestMSG, typename ReplyMSG = void>
-    ProtobufMsgDispatcherByName<ArgTypes...>& on(
-            const typename ProtobufMsgHandlerT_N<RequestMSG, ReplyMSG, ArgTypes...>::Handler& handler)
+    DispatcherType& on(const typename ProtobufMsgHandlerT_N<DispatcherType, RequestMSG, ReplyMSG, ArgTypes...>::Handler& handler)
     {
-        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_N<RequestMSG, ReplyMSG, ArgTypes...>(0, RequestMSG::descriptor()->full_name(), handler));
+        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_N<DispatcherType, RequestMSG, ReplyMSG, ArgTypes...>(
+                *this, 0, RequestMSG::descriptor()->full_name(), handler));
         bindHandlerPtr(h);
         return *this;
     }
 
     template <typename RequestMSG, typename ReplyMSG = void>
-    ProtobufMsgDispatcherByName<ArgTypes...>& on_void(const typename ProtobufMsgHandlerT_Void<RequestMSG, ReplyMSG, ArgTypes...>::Handler& handler)
+    DispatcherType& on_void(const typename ProtobufMsgHandlerT_Void<DispatcherType, RequestMSG, ReplyMSG, ArgTypes...>::Handler& handler)
     {
-        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_Void<RequestMSG, ReplyMSG, ArgTypes...>(0, RequestMSG::descriptor()->full_name(), handler));
+        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_Void<DispatcherType, RequestMSG, ReplyMSG, ArgTypes...>(
+                *this, 0, RequestMSG::descriptor()->full_name(), handler));
         bindHandlerPtr(h);
         return *this;
     }
 
-
     //
     // 消息分发
     //
-    ProtobufMsgHandlerBase::MessagePtr dispatch(const MessageHeader* msgheader,  ArgTypes... args)
+    ProtobufMsgHandlerBase::BufPtr dispatch(const MessageHeader* msgheader,  ArgTypes... args)
     {
         if (0 == msgheader->type_is_name || 0 == msgheader->type_len)
         {
             throw MsgDispatcherError("message header error");
-            return ProtobufMsgHandlerBase::MessagePtr();
+            return ProtobufMsgHandlerBase::BufPtr();
         }
 
         const char* msg_name =(char*)msgheader + sizeof(MessageHeader);
@@ -340,7 +364,13 @@ public:
             throw MsgDispatcherError("handler not exist for : " + msgname);
         }
 
-        return ProtobufMsgHandlerBase::MessagePtr();
+        return ProtobufMsgHandlerBase::BufPtr();
+    }
+
+    template <typename MSG>
+    static bool pack(std::string& buf, const MSG& msg)
+    {
+        return ProtobufMsgHandlerBase::packByName(buf, msg);
     }
 
 protected:
