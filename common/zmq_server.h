@@ -35,6 +35,14 @@ static void s_dumpmsg(zmq::message_t & message)
 }
 
 
+//
+// ZMQAsyncServer - 异步服务器
+
+// ZMQBroker      - 代理
+// ZMQWorker      - 同步服务器/工作服务者
+//
+
+
 class ZMQServer
 {
 public:
@@ -140,6 +148,7 @@ public:
     bool fini()
     {
         isrunning_ = false;
+        return true;
     }
 
     void poll(long timeout = -1)
@@ -257,12 +266,13 @@ public:
     void sendMsg(MSG& proto)
     {
         std::string msgbuf;
-        ProtobufMsgHandlerBase::packByName(msgbuf, proto);
+        MsgDispatcher::pack(msgbuf, proto);
         zmq::message_t reply(msgbuf.data(), msgbuf.size());
         socket_->send(reply);
     }
 
 protected:
+    // 该函数必须返回一条消息
     void on_recv(zmq::message_t& request)
     {
         zmq::message_t err;
@@ -274,9 +284,19 @@ protected:
 
             if (header->msgsize() == request.size())
             {
-                try {
-                    msg_dispatcher_.dispatch(header);
-                    return;
+                try
+                {
+                    auto replybin = msg_dispatcher_.dispatch(header);
+                    if (replybin)
+                    {
+                        zmq::message_t reply(replybin->data(), replybin->size());
+                        socket_->send(reply);
+                        return;
+                    }
+                    else
+                    {
+                        std::cout << "ERROR: msg handler has no reply" << std::endl;
+                    }
                 }
                 catch (std::exception& err)
                 {

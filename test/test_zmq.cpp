@@ -6,12 +6,14 @@
 #include "zmq_client.h"
 #include "zmq_server.h"
 
-#include "test_rpc.pb.h"
+#include "test_msg.pb.h"
+
+std::shared_ptr<zmq::context_t> g_context;
 
 void test_client(int id)
 {
     ZMQClient::MsgDispatcher::instance()
-            .on<rpc::GetReply>([](const rpc::GetReply& msg){
+            .on<Cmd::LoginReply>([](const Cmd::LoginReply& msg){
                 std::cout << __PRETTY_FUNCTION__ << std::endl;
                 std::cout << msg.DebugString() << std::endl;
             });
@@ -19,15 +21,20 @@ void test_client(int id)
     try {
         ZMQClient client;
         client.connect("tcp://localhost:5555");
+        int count = 0;
         while (true) {
             client.poll(1000);
 
-            rpc::GetRequest send;
-            send.set_player(id);
+            Cmd::LoginRequest send;
+            send.set_id(count++);
+            send.set_type(20);
             send.set_name("david");
             client.sendMsg(send);
 
             std::cout << "send.." << std::endl;
+
+            std::chrono::milliseconds ms(1000);
+            std::this_thread::sleep_for(ms);
         }
     }
     catch (std::exception& e)
@@ -38,51 +45,52 @@ void test_client(int id)
 
 void test_server()
 {
-    ZMQServer server;
-
-    ZMQServer::MsgDispatcher::instance()
-            .on<rpc::GetRequest>([&server](const rpc::GetRequest& msg, const std::string& client){
-                std::cout << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << "client: " << client << std::endl;
-                std::cout << msg.DebugString() << std::endl;
-
-                rpc::GetReply reply;
-                reply.set_result("cool!!");
-                server.sendMsg(client, reply);
-            });
-
-    try {
-//        ZMQServer server;
-        server.bind("tcp://*:5555");
-        while (true) {
-            server.poll(1000);
-
-            std::cout << "idle ..." << std::endl;
-        }
-    }
-    catch (std::exception& e)
-    {
-        std::cerr << e.what() << std::endl;
-    }
+//    ZMQServer server;
+//
+//    ZMQServer::MsgDispatcher::instance()
+//            .on<rpc::GetRequest>([&server](const rpc::GetRequest& msg, const std::string& client){
+//                std::cout << __PRETTY_FUNCTION__ << std::endl;
+//                std::cout << "client: " << client << std::endl;
+//                std::cout << msg.DebugString() << std::endl;
+//
+//                rpc::GetReply reply;
+//                reply.set_result("cool!!");
+//                server.sendMsg(client, reply);
+//            });
+//
+//    try {
+////        ZMQServer server;
+//        server.bind("tcp://*:5555");
+//        while (true) {
+//            server.poll(1000);
+//
+//            std::cout << "idle ..." << std::endl;
+//        }
+//    }
+//    catch (std::exception& e)
+//    {
+//        std::cerr << e.what() << std::endl;
+//    }
 }
 
 void test_worker()
 {
-    ZMQWorker worker;
+    ZMQWorker worker(ZMQWorker::MsgDispatcher::instance(), g_context);
 
     ZMQWorker::MsgDispatcher::instance()
-            .on<rpc::GetRequest>([&worker](const rpc::GetRequest& msg){
+            .on<Cmd::LoginRequest, Cmd::LoginReply>([&worker](const Cmd::LoginRequest& msg){
                 std::cout << __PRETTY_FUNCTION__ << std::endl;
                 std::cout << msg.DebugString() << std::endl;
 
-                rpc::GetReply reply;
-                reply.set_result("cool!!");
-//                worker.sendMsg(reply);
+                Cmd::LoginReply reply;
+                reply.set_info("worker reply!!");
+                return reply;
             });
 
     try {
 //        worker.connect("tcp://localhost:6666");
-        worker.bind("tcp://*:5555");
+//        worker.bind("tcp://*:5555");
+        worker.connect("inproc://workers");
 
         while (true) {
             worker.poll(1000);
@@ -98,11 +106,12 @@ void test_worker()
 
 void test_broker()
 {
-    ZMQBroker broker;
+    ZMQBroker broker(g_context);
 
     try {
-//        worker.connect("tcp://localhost:6666");
-        broker.bind("tcp://*:5555", "tcp://*:6666");
+//        broker.bind("tcp://*:5555", "tcp://*:6666");
+        broker.bind("tcp://*:5555", "inproc://workers");
+
 
         while (true) {
             broker.poll(1000);
@@ -119,6 +128,8 @@ void test_broker()
 
 int main(int argc, const char* argv[])
 {
+    g_context.reset(new zmq::context_t(2));
+
     if (argc < 2 )
     {
         std::cout << "Usage: ... client | server" << std::endl;
@@ -140,6 +151,8 @@ int main(int argc, const char* argv[])
     }
     else if ("broker" == op)
     {
+        std::thread t(test_worker);
         test_broker();
+        t.join();
     }
 }

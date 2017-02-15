@@ -12,6 +12,7 @@ message LoginRequest {
     required uint32 id   = 1;     // 连接ID
     required uint32 type = 2;     // 连接类型
     optional string password = 3; // 验证密码
+    optional string name = 4;
 }
 
 
