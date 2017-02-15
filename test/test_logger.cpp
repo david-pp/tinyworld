@@ -7,6 +7,8 @@
 
 #include "../common/mylogger.h"
 
+#include "tinylogger.h"
+
 //
 // !!! 中文无法显示，请重新编译log4cxx:
 // ./configure --with-charset=utf-8 --with-logchar=utf-8
@@ -106,6 +108,41 @@ void initSMTP()
 }
 
 
+
+void log(const char* loggername, const char* fmt, ...)
+{
+	LoggerPtr logger(Logger::getLogger(loggername));
+
+	va_list ap;
+	va_start(ap, fmt);
+	char buf[1024] = "";
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	logger->forcedLog(log4cxx::Level::getDebug(), buf);
+}
+
+void test_tinylogger()
+{
+	// printf
+	LOG_TRACE(__FUNCTION__, "hello %s! %d", "world", 2000);
+	LOG_DEBUG(__FUNCTION__, "hello %s! %d", "world", 2000);
+	LOG_INFO(__FUNCTION__, "hello %s! %d", "world", 2000);
+
+	LOG_WARN(__FUNCTION__, "hello %s! %d", "world", 2000);
+	LOG_ERROR(__FUNCTION__, "hello %s! %d", "world", 2000);
+	LOG_FATAL(__FUNCTION__, "hello %s! %d", "world", 2000);
+
+	// stream
+	LOGGER_TRACE(__FUNCTION__, "hello " << 2011 << " !");
+	LOGGER_DEBUG(__FUNCTION__, "hello " << 2011 << " !");
+	LOGGER_INFO(__FUNCTION__, "hello " << 2011 << " !");
+	LOGGER_WARN(__FUNCTION__, "hello " << 2011 << " !");
+	LOGGER_ERROR(__FUNCTION__, "hello " << 2011 << " !");
+	LOGGER_FATAL(__FUNCTION__, "hello " << 2011 << " !");
+}
+
+
 int main(int argc, char **argv)
 {
 	int result = EXIT_SUCCESS;
@@ -113,14 +150,17 @@ int main(int argc, char **argv)
 	if (argc > 1)
 	{
 		//PropertyConfigurator::configureAndWatch(argv[1], 3000);
-		PropertyConfigurator::configure(argv[1]);
-		BasicConfigurator::resetConfiguration();
+//		PropertyConfigurator::configure(argv[1]);
+//		BasicConfigurator::resetConfiguration();
 		PropertyConfigurator::configure(argv[1]);
 	}
 	else
 	{
 		BasicConfigurator::configure();
 	}
+
+	test_tinylogger();
+	return 0;
 
 	//initSMTP();
 
@@ -138,9 +178,15 @@ int main(int argc, char **argv)
 		f11.doIt();
 		f2.doIt();
 		sleep(1);
+		LOG_TRACE("test", "%u,%s", __LINE__, __FILE__);
+		LOG_TRACE("test222", "aaaaaaaaa");
+		LOG_TRACE("test111", "%s !! %d", "hello", -100);
+//		break;
 	}
 
 	LOG4CXX_INFO(logger, "Exiting application." << 2)
+
+
 
 	return result;
 }
