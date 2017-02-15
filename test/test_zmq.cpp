@@ -69,13 +69,16 @@ void test_server()
 void test_worker()
 {
     ZMQWorker worker;
-    worker.on<rpc::GetRequest, rpc::GetReply>([](const rpc::GetRequest &req) {
-        rpc::GetReply reply;
-        reply.set_result("fuckyou!");
-        std::cout << "RPC ---------------------" << std::endl;
-        std::cout << req.DebugString() << std::endl;
-        return reply;
-    });
+
+    ZMQWorker::MsgDispatcher::instance()
+            .on<rpc::GetRequest>([&worker](const rpc::GetRequest& msg){
+                std::cout << __PRETTY_FUNCTION__ << std::endl;
+                std::cout << msg.DebugString() << std::endl;
+
+                rpc::GetReply reply;
+                reply.set_result("cool!!");
+//                worker.sendMsg(reply);
+            });
 
     try {
 //        worker.connect("tcp://localhost:6666");

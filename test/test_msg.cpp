@@ -39,7 +39,7 @@ void test_byname()
     Object obj;
 
     try {
-        // 测试消息分发-无参数
+        // 测试消息分发-无参数/无返回值
         {
             ProtobufMsgDispatcherByName<int, Object *> d;
             d.on_void<Cmd::LoginRequest>([]() {
@@ -50,17 +50,52 @@ void test_byname()
             d.dispatch(header, 100, &obj);
         }
 
+
+        // 测试消息分发-无参数/有返回值
+        {
+            ProtobufMsgDispatcherByName<int, Object*> d;
+            d.on_void<Cmd::LoginRequest, Cmd::LoginReply>([]() {
+                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+                std::cout << "args: void" << std::endl;
+
+                Cmd::LoginReply reply;
+                reply.set_info("good!");
+                return reply;
+            });
+
+            auto reply = d.dispatch(header, 100, &obj);
+            if (reply)
+            {
+                std::cout << reply->DebugString() << std::endl;
+            }
+        }
+
         // 测试消息分发-多参数
         {
             ProtobufMsgDispatcherByName<int, Object *> d;
-            d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
+//            d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
+//                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+//                std::cout << msg.DebugString() << std::endl;
+//                std::cout << "arg1:" << a1 << std::endl;
+//                std::cout << "arg2:" << a2->v << std::endl;
+//            });
+
+            d.on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
                 std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
                 std::cout << msg.DebugString() << std::endl;
                 std::cout << "arg1:" << a1 << std::endl;
                 std::cout << "arg2:" << a2->v << std::endl;
+
+                Cmd::LoginReply reply;
+                reply.set_info("cool!");
+                return reply;
             });
 
-            d.dispatch(header, 100, &obj);
+            auto reply = d.dispatch(header, 100, &obj);
+            if (reply)
+            {
+                std::cout << reply->DebugString() << std::endl;
+            }
         }
 
         // 测试消息分发-bind
@@ -78,112 +113,112 @@ void test_byname()
 }
 
 
-void test_byid1()
-{
-    // 准备消息
-    Cmd::LoginRequest send;
-    send.set_id(12345);
-    send.set_password("passwd");
-    send.set_type(20);
-    std::cout << send.DebugString() << std::endl;
-
-    // 打包
-    std::string msgbuf;
-    ProtobufMsgHandlerBase::packByID1(msgbuf, send);
-
-    MessageHeader* header = (MessageHeader*)msgbuf.data();
-    std::cout << header->dumphex() << std::endl;
-
-    std::cout << "-----------------" << std::endl;
-
-    Object obj;
-
-    // 测试消息分发-无参数
-    {
-        ProtobufMsgDispatcherByID1<int, Object *> d;
-        d.on_void<Cmd::LoginRequest>([]() {
-            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-            std::cout << "args: void" << std::endl;
-        });
-
-        d.dispatch(header, 100, &obj);
-    }
-
-    // 测试消息分发-多参数
-    {
-        ProtobufMsgDispatcherByID1<int, Object *> d;
-        d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
-            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-            std::cout << msg.DebugString() << std::endl;
-            std::cout << "arg1:" << a1 << std::endl;
-            std::cout << "arg2:" << a2->v << std::endl;
-        });
-
-        d.dispatch(header, 100, &obj);
-    }
-
-    // 测试消息分发-bind
-    {
-        ProtobufMsgDispatcherByID1<> d;
-        d.on<Cmd::LoginRequest>(std::bind(&Object::doMsg, obj, std::placeholders::_1));
-
-        d.dispatch(header);
-    }
-}
-
-
-void test_byid2()
-{
-    // 准备消息
-    Cmd::LoginRequest send;
-    send.set_id(12345);
-    send.set_password("passwd");
-    send.set_type(20);
-    std::cout << send.DebugString() << std::endl;
-
-    // 打包
-    std::string msgbuf;
-    ProtobufMsgHandlerBase::packByID2(msgbuf, send);
-
-    MessageHeader* header = (MessageHeader*)msgbuf.data();
-    std::cout << header->dumphex() << std::endl;
-
-    std::cout << "-----------------" << std::endl;
-
-    Object obj;
-
-    // 测试消息分发-无参数
-    {
-        ProtobufMsgDispatcherByID2<int, Object *> d;
-        d.on_void<Cmd::LoginRequest>([]() {
-            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-            std::cout << "args: void" << std::endl;
-        });
-
-        d.dispatch(header, 100, &obj);
-    }
-
-    // 测试消息分发-多参数
-    {
-        ProtobufMsgDispatcherByID2<int, Object *> d;
-        d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
-            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-            std::cout << msg.DebugString() << std::endl;
-            std::cout << "arg1:" << a1 << std::endl;
-            std::cout << "arg2:" << a2->v << std::endl;
-        });
-
-        d.dispatch(header, 100, &obj);
-    }
-
-    // 测试消息分发-bind
-    {
-        ProtobufMsgDispatcherByID2<> d;
-        d.on<Cmd::LoginRequest>(std::bind(&Object::doMsg, obj, std::placeholders::_1));
-
-        d.dispatch(header);
-    }
-}
+//void test_byid1()
+//{
+//    // 准备消息
+//    Cmd::LoginRequest send;
+//    send.set_id(12345);
+//    send.set_password("passwd");
+//    send.set_type(20);
+//    std::cout << send.DebugString() << std::endl;
+//
+//    // 打包
+//    std::string msgbuf;
+//    ProtobufMsgHandlerBase::packByID1(msgbuf, send);
+//
+//    MessageHeader* header = (MessageHeader*)msgbuf.data();
+//    std::cout << header->dumphex() << std::endl;
+//
+//    std::cout << "-----------------" << std::endl;
+//
+//    Object obj;
+//
+//    // 测试消息分发-无参数
+//    {
+//        ProtobufMsgDispatcherByID1<int, Object *> d;
+//        d.on_void<Cmd::LoginRequest>([]() {
+//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+//            std::cout << "args: void" << std::endl;
+//        });
+//
+//        d.dispatch(header, 100, &obj);
+//    }
+//
+//    // 测试消息分发-多参数
+//    {
+//        ProtobufMsgDispatcherByID1<int, Object *> d;
+//        d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
+//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+//            std::cout << msg.DebugString() << std::endl;
+//            std::cout << "arg1:" << a1 << std::endl;
+//            std::cout << "arg2:" << a2->v << std::endl;
+//        });
+//
+//        d.dispatch(header, 100, &obj);
+//    }
+//
+//    // 测试消息分发-bind
+//    {
+//        ProtobufMsgDispatcherByID1<> d;
+//        d.on<Cmd::LoginRequest>(std::bind(&Object::doMsg, obj, std::placeholders::_1));
+//
+//        d.dispatch(header);
+//    }
+//}
+//
+//
+//void test_byid2()
+//{
+//    // 准备消息
+//    Cmd::LoginRequest send;
+//    send.set_id(12345);
+//    send.set_password("passwd");
+//    send.set_type(20);
+//    std::cout << send.DebugString() << std::endl;
+//
+//    // 打包
+//    std::string msgbuf;
+//    ProtobufMsgHandlerBase::packByID2(msgbuf, send);
+//
+//    MessageHeader* header = (MessageHeader*)msgbuf.data();
+//    std::cout << header->dumphex() << std::endl;
+//
+//    std::cout << "-----------------" << std::endl;
+//
+//    Object obj;
+//
+//    // 测试消息分发-无参数
+//    {
+//        ProtobufMsgDispatcherByID2<int, Object *> d;
+//        d.on_void<Cmd::LoginRequest>([]() {
+//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+//            std::cout << "args: void" << std::endl;
+//        });
+//
+//        d.dispatch(header, 100, &obj);
+//    }
+//
+//    // 测试消息分发-多参数
+//    {
+//        ProtobufMsgDispatcherByID2<int, Object *> d;
+//        d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
+//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+//            std::cout << msg.DebugString() << std::endl;
+//            std::cout << "arg1:" << a1 << std::endl;
+//            std::cout << "arg2:" << a2->v << std::endl;
+//        });
+//
+//        d.dispatch(header, 100, &obj);
+//    }
+//
+//    // 测试消息分发-bind
+//    {
+//        ProtobufMsgDispatcherByID2<> d;
+//        d.on<Cmd::LoginRequest>(std::bind(&Object::doMsg, obj, std::placeholders::_1));
+//
+//        d.dispatch(header);
+//    }
+//}
 
 int main(int argc, const char* argv[])
 {

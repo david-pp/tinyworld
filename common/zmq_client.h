@@ -71,13 +71,24 @@ protected:
     void on_recv(zmq::message_t& request)
     {
         MessageHeader* header = (MessageHeader*)request.data();
-
-        std::cout << header->dumphex() << std::endl;
-
-        if (header->msgsize() == request.size())
+        if (request.size() >= sizeof(MessageHeader))
         {
-            msg_dispatcher_.dispatch(header);
+            std::cout << header->dumphex() << std::endl;
+
+            if (header->msgsize() == request.size())
+            {
+                try {
+                    msg_dispatcher_.dispatch(header);
+                    return;
+                }
+                catch (std::exception& err)
+                {
+                    std::cout << "ERROR:" << err.what() << std::endl;
+                }
+            }
         }
+
+        std::cout << "ERROR: " << request.size() << std::endl;
     }
 
 private:
