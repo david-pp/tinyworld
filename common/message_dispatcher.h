@@ -7,6 +7,7 @@
 #include <iostream>
 #include <memory>
 #include <functional>
+#include <exception>
 #include <google/protobuf/message.h>
 #include "message.h"
 
@@ -20,6 +21,21 @@
 //   3. ProtobufMsgDispatcherByID2   - 基于协议的主、次消息编号(TYPE1、TYPE2)
 //
 ///////////////////////////////////////////////////////////
+
+class MsgDispatcherError : public std::exception
+{
+public:
+    MsgDispatcherError(const std::string& msg)
+            : errmsg_(msg) {}
+
+    virtual const char *what () const noexcept
+    {
+        return errmsg_.c_str();
+    }
+
+private:
+    std::string errmsg_;
+};
 
 
 ///////////////////////////////////////////////////////////
@@ -234,13 +250,17 @@ public:
         return *this;
     }
 
+
     //
     // 消息分发
     //
     bool dispatch(const MessageHeader* msgheader,  ArgTypes... args)
     {
         if (0 == msgheader->type_is_name || 0 == msgheader->type_len)
+        {
+            throw MsgDispatcherError("message header error");
             return false;
+        }
 
         const char* msg_name =(char*)msgheader + sizeof(MessageHeader);
         uint8* msg_proto = (uint8*)msg_name + msgheader->type_len;
@@ -256,10 +276,14 @@ public:
                 it->second->process(proto, args...);
                 return true;
             }
+            else
+            {
+                throw MsgDispatcherError("error body parse error : " + msgname);
+            }
         }
         else
         {
-            std::cout << "ERROR:" << msgname << std::endl;
+            throw MsgDispatcherError("handler not exist for : " + msgname);
         }
 
         return false;
