@@ -208,50 +208,50 @@ using log4cxx::PropertyConfigurator;
 // C printf style
 //
 #define LOG_TRACE(loggername, fmt, ...) { \
-        if (LOG4CXX_UNLIKELY(logger->isTraceEnabled())) {\
+        log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
+        if (LOG4CXX_UNLIKELY(logger_->isTraceEnabled())) {\
             char buf_[LOG_LENGTH_MAX] = ""; \
             snprintf(buf_, sizeof(buf_), fmt, ##__VA_ARGS__ ); \
-            log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
             logger_->forcedLog(log4cxx::Level::getTrace(), buf_, LOG4CXX_LOCATION); \
         }}
 
 #define LOG_DEBUG(loggername, fmt, ...) { \
-        if (LOG4CXX_UNLIKELY(logger->isDebugEnabled())) {\
+        log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
+        if (LOG4CXX_UNLIKELY(logger_->isDebugEnabled())) {\
             char buf_[LOG_LENGTH_MAX] = ""; \
             snprintf(buf_, sizeof(buf_), fmt, ##__VA_ARGS__ ); \
-            log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
             logger_->forcedLog(log4cxx::Level::getDebug(), buf_, LOG4CXX_LOCATION); \
         }}
 
 #define LOG_INFO(loggername, fmt, ...) { \
-        if (LOG4CXX_UNLIKELY(logger->isInfoEnabled())) {\
+        log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
+        if (LOG4CXX_UNLIKELY(logger_->isInfoEnabled())) {\
             char buf_[LOG_LENGTH_MAX] = ""; \
             snprintf(buf_, sizeof(buf_), fmt, ##__VA_ARGS__ ); \
-            log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
             logger_->forcedLog(log4cxx::Level::getInfo(), buf_, LOG4CXX_LOCATION); \
         }}
 
 #define LOG_WARN(loggername, fmt, ...) { \
-        if (LOG4CXX_UNLIKELY(logger->isWarnEnabled())) {\
+        log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
+        if (LOG4CXX_UNLIKELY(logger_->isWarnEnabled())) {\
             char buf_[LOG_LENGTH_MAX] = ""; \
             snprintf(buf_, sizeof(buf_), fmt, ##__VA_ARGS__ ); \
-            log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
             logger_->forcedLog(log4cxx::Level::getWarn(), buf_, LOG4CXX_LOCATION); \
         }}
 
 #define LOG_ERROR(loggername, fmt, ...) { \
-        if (LOG4CXX_UNLIKELY(logger->isErrorEnabled())) {\
+        log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
+        if (LOG4CXX_UNLIKELY(logger_->isErrorEnabled())) {\
             char buf_[LOG_LENGTH_MAX] = ""; \
             snprintf(buf_, sizeof(buf_), fmt, ##__VA_ARGS__ ); \
-            log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
             logger_->forcedLog(log4cxx::Level::getError(), buf_, LOG4CXX_LOCATION); \
         }}
 
 #define LOG_FATAL(loggername, fmt, ...) { \
-        if (LOG4CXX_UNLIKELY(logger->isFatalEnabled())) {\
+        log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
+        if (LOG4CXX_UNLIKELY(logger_->isFatalEnabled())) {\
             char buf_[LOG_LENGTH_MAX] = ""; \
             snprintf(buf_, sizeof(buf_), fmt, ##__VA_ARGS__ ); \
-            log4cxx::LoggerPtr logger_(log4cxx::Logger::getLogger(loggername)); \
             logger_->forcedLog(log4cxx::Level::getFatal(), buf_, LOG4CXX_LOCATION); \
         }}
 
