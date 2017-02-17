@@ -45,32 +45,29 @@ void test_client(int id)
 
 void test_server()
 {
-//    ZMQServer server;
-//
-//    ZMQServer::MsgDispatcher::instance()
-//            .on<rpc::GetRequest>([&server](const rpc::GetRequest& msg, const std::string& client){
-//                std::cout << __PRETTY_FUNCTION__ << std::endl;
-//                std::cout << "client: " << client << std::endl;
-//                std::cout << msg.DebugString() << std::endl;
-//
-//                rpc::GetReply reply;
-//                reply.set_result("cool!!");
+    ZMQAsyncServer server;
+
+    ZMQAsyncServer::MsgDispatcher::instance()
+            .on<Cmd::LoginRequest, Cmd::LoginReply>([&server](const Cmd::LoginRequest& msg, const std::string& client){
+                LOG_DEBUG("ZMQAsyncServer", "%s", msg.DebugString().c_str());
+                Cmd::LoginReply reply;
+                reply.set_info("ZMQAsyncServer");
 //                server.sendMsg(client, reply);
-//            });
-//
-//    try {
-////        ZMQServer server;
-//        server.bind("tcp://*:5555");
-//        while (true) {
-//            server.poll(1000);
-//
-//            std::cout << "idle ..." << std::endl;
-//        }
-//    }
-//    catch (std::exception& e)
-//    {
-//        std::cerr << e.what() << std::endl;
-//    }
+                return reply;
+            });
+
+    try {
+        server.bind("tcp://*:5555");
+        while (true) {
+            server.poll(1000);
+
+            std::cout << "idle ..." << std::endl;
+        }
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
 }
 
 void test_worker()
@@ -88,9 +85,9 @@ void test_worker()
             });
 
     try {
-//        worker.connect("tcp://localhost:6666");
+        worker.connect("tcp://localhost:6666");
 //        worker.bind("tcp://*:5555");
-        worker.connect("inproc://workers");
+//        worker.connect("inproc://workers");
 
         while (true) {
             worker.poll(1000);
@@ -109,9 +106,8 @@ void test_broker()
     ZMQBroker broker(g_context);
 
     try {
-//        broker.bind("tcp://*:5555", "tcp://*:6666");
-        broker.bind("tcp://*:5555", "inproc://workers");
-
+        broker.bind("tcp://*:5555", "tcp://*:6666");
+//        broker.bind("tcp://*:5555", "inproc://workers");
 
         while (true) {
             broker.poll(1000);

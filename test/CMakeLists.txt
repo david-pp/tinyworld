@@ -27,7 +27,7 @@ foreach(PB ${PROTOS})
                 DEPENDS  ${PB})
 endforeach(PB ${PROTOS})
 
-add_definitions(-DTINYLOGGER_LOG4CXX)
+#add_definitions(-DTINYLOGGER_LOG4CXX)
 
 add_executable(test_logger test_logger.cpp)
 target_link_libraries(test_logger log4cxx apr-1 aprutil-1 iconv)

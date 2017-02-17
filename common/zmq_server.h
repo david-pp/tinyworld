@@ -3,11 +3,14 @@
 
 #include <thread>
 #include <zmq.hpp>
+#include "tinylogger.h"
 #include "message_dispatcher.h"
 
 #include <iostream>
 #include <string>
 #include <iomanip>
+
+
 static void s_dumpmsg(zmq::message_t & message)
 {
     //  Dump the message as text or binary
@@ -43,19 +46,19 @@ static void s_dumpmsg(zmq::message_t & message)
 //
 
 
-class ZMQServer
+class ZMQAsyncServer
 {
 public:
     typedef ProtobufMsgDispatcherByName<const std::string&> MsgDispatcher;
-    ZMQServer(MsgDispatcher& dispatcher = MsgDispatcher::instance())
+    ZMQAsyncServer(MsgDispatcher& dispatcher = MsgDispatcher::instance())
             : msg_dispatcher_(dispatcher)
     {
-
     }
 
     bool bind(const std::string& address)
     {
-        std::cout << "Server listening : " << address << std::endl;
+        LOG_TRACE("ZMQ", "Server listening : %s", address.c_str());
+
         context_.reset(new zmq::context_t(10));
         socket_.reset(new zmq::socket_t(*context_.get(), ZMQ_ROUTER));
         socket_->bind(address);
@@ -76,6 +79,9 @@ public:
                 socket_->recv(&idmsg);
                 std::string id((char*)idmsg.data(), idmsg.size());
 
+                zmq::message_t empty;
+                socket_->recv(&empty);
+
                 zmq::message_t request;
                 socket_->recv (&request);
 
@@ -94,9 +100,11 @@ public:
         ProtobufMsgHandlerBase::packByName(msgbuf, proto);
 
         zmq::message_t idmsg(id.data(), id.size());
+        zmq::message_t empty;
         zmq::message_t reply(msgbuf.data(), msgbuf.size());
 
         socket_->send(idmsg, ZMQ_SNDMORE);
+        socket_->send(empty, ZMQ_SNDMORE);
         socket_->send(reply);
     }
 
@@ -104,13 +112,31 @@ protected:
     void on_recv(std::string& client, zmq::message_t& request)
     {
         MessageHeader* header = (MessageHeader*)request.data();
-
-        std::cout << header->dumphex() << std::endl;
-
-        if (header->msgsize() == request.size())
+        if (request.size() >= sizeof(MessageHeader))
         {
-            msg_dispatcher_.dispatch(header, client);
+            if (header->msgsize() == request.size())
+            {
+                try
+                {
+                    auto replybin = msg_dispatcher_.dispatch(header, client);
+                    if (replybin)
+                    {
+                        zmq::message_t idmsg(client.data(), client.size());
+                        zmq::message_t empty;
+                        zmq::message_t reply(replybin->data(), replybin->size());
+                        socket_->send(idmsg, ZMQ_SNDMORE);
+                        socket_->send(empty, ZMQ_SNDMORE);
+                        socket_->send(reply);
+                    }
+                }
+                catch (std::exception& err)
+                {
+                    LOG_ERROR("ZMQ", "%s", err.what());
+                }
+            }
         }
+        else
+            LOG_ERROR("ZMQ", "msg is invalid");
     }
 private:
     std::shared_ptr<zmq::context_t> context_;
@@ -133,6 +159,9 @@ public:
 
     bool bind(const std::string& frontend, const std::string& backend)
     {
+        LOG_TRACE("ZMQ", "Proxy Frontend listening : %s", frontend.c_str());
+        LOG_TRACE("ZMQ", "Proxy Backend  listening : %s", backend.c_str());
+
         frontend_address_ = frontend;
         backend_address_ = backend;
 
@@ -145,12 +174,6 @@ public:
         return true;
     }
 
-    bool fini()
-    {
-        isrunning_ = false;
-        return true;
-    }
-
     void poll(long timeout = -1)
     {
         //  Initialize poll set
@@ -160,7 +183,7 @@ public:
         };
 
         //  Switch messages between sockets
-        if (isrunning_) {
+        if (true) {
             zmq::message_t message;
             int more;               //  Multipart detection
 
@@ -201,11 +224,7 @@ private:
 
     std::string frontend_address_;
     std::string backend_address_;
-
-    bool isrunning_ = true;
 };
-
-#include "rpc_server.h"
 
 class ZMQWorker
 {
@@ -224,27 +243,30 @@ public:
 
     bool connect(const std::string& address)
     {
+        if (!context_) return false;
 
-        std::cout << "Connecting to  Broker..." << std::endl;
         socket_.reset(new zmq::socket_t(*context_.get(), ZMQ_REP));
         socket_->connect(address);
-
+        LOG_TRACE("ZMQ", "Connecting to Broker: %s", address.c_str());
         return true;
     }
 
     bool bind(const std::string& address)
     {
         if (!context_) return false;
-        std::cout << "Server listening : " << address << std::endl;
+
+        LOG_TRACE("ZMQ", "Server listening : %s", address.c_str());
+
         socket_.reset(new zmq::socket_t(*context_.get(), ZMQ_REP));
         socket_->bind(address);
-
         return true;
     }
 
     bool poll(long timeout = -1)
     {
-        zmq::pollitem_t items[] = { { *socket_.get(), 0, ZMQ_POLLIN, 0 } };
+        if (!context_ || !socket_) return false;
+
+        zmq::pollitem_t items[] = {{*socket_.get(), 0, ZMQ_POLLIN, 0}};
 
         int rc = zmq_poll(&items[0], 1, timeout);
         if (-1 != rc) {
@@ -280,7 +302,7 @@ protected:
         MessageHeader* header = (MessageHeader*)request.data();
         if (request.size() >= sizeof(MessageHeader))
         {
-            std::cout << header->dumphex() << std::endl;
+//            std::cout << header->dumphex() << std::endl;
 
             if (header->msgsize() == request.size())
             {
@@ -295,15 +317,17 @@ protected:
                     }
                     else
                     {
-                        std::cout << "ERROR: msg handler has no reply" << std::endl;
+                        LOG_ERROR("ZMQ", "msg handler has no reply");
                     }
                 }
                 catch (std::exception& err)
                 {
-                    std::cout << "ERROR:" << err.what() << std::endl;
+                    LOG_ERROR("ZMQ", "%s", err.what());
                 }
             }
         }
+        else
+            LOG_ERROR("ZMQ", "msg is invalid");
 
         socket_->send(err);
     }

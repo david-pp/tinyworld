@@ -2,7 +2,9 @@
 #define TINYWORLD_ZMQ_CLIENT_H
 
 #include <zmq.hpp>
+#include "tinylogger.h"
 #include "message_dispatcher.h"
+
 
 class ZMQClient
 {
@@ -25,7 +27,8 @@ public:
 
     bool connect(const std::string& address)
     {
-        std::cout << "Connecting to  server..." << std::endl;
+        LOG_TRACE("ZMQ", "Connecting to Server: %s", address.c_str());
+
         context_.reset(new zmq::context_t(1));
         socket_.reset(new zmq::socket_t(*context_.get(), ZMQ_DEALER));
         socket_->connect(address);
