@@ -102,10 +102,11 @@ void insert(TableDescriptorBase::Ptr tdbase, T &obj) {
 
             if (fd->type == FieldType::UINT32)
                 std::cout << fd->name << " : " << td->reflection.template get<uint32_t>(obj, fd->name) << std::endl;
-            else if(fd->type == FieldType::VCHAR)
+            else if (fd->type == FieldType::VCHAR)
                 std::cout << fd->name << " : " << td->reflection.template get<std::string>(obj, fd->name) << std::endl;
-            else if(fd->type == FieldType::UINT8)
-                std::cout << fd->name << " : " << (int)td->reflection.template get<uint8_t>(obj, fd->name) << std::endl;
+            else if (fd->type == FieldType::UINT8)
+                std::cout << fd->name << " : " << (int) td->reflection.template get<uint8_t>(obj, fd->name)
+                          << std::endl;
             else
                 std::cout << fd->name << ": unkown" << std::endl;
         }
@@ -116,11 +117,11 @@ void insert(TableDescriptorBase::Ptr tdbase, T &obj) {
         for (auto fd : td->fieldIterators()) {
 
             if (fd->type == FieldType::UINT32)
-               st.exchange(soci::use(td->reflection.template get<uint32_t>(obj, fd->name)));
-            else if(fd->type == FieldType::VCHAR)
+                st.exchange(soci::use(td->reflection.template get<uint32_t>(obj, fd->name)));
+            else if (fd->type == FieldType::VCHAR)
                 st.exchange(soci::use(td->reflection.template get<std::string>(obj, fd->name)));
-            else if(fd->type == FieldType::UINT8)
-                st.exchange(soci::use(td->reflection.template get<uint8_t >(obj, fd->name)));
+            else if (fd->type == FieldType::UINT8)
+                st.exchange(soci::use(td->reflection.template get<uint8_t>(obj, fd->name)));
         }
 
 
@@ -142,6 +143,54 @@ void insert(TableDescriptorBase::Ptr tdbase, T &obj) {
     }
 }
 
+
+#include <mysql++/mysql++.h>
+
+template<typename T>
+void insert_mysqlpp(TableDescriptorBase::Ptr tdbase, T &obj) {
+
+    TableDescriptor<T> *td = (TableDescriptor<T> *) tdbase.get();
+    try {
+        mysqlpp::Connection mysql;
+        mysql.connect("tinyworld", "127.0.0.1", "david", "123456");
+        mysqlpp::Query query = mysql.query();
+
+
+        query << "INSERT INTO `" << td->table
+              << "`(" << td->sql_fieldlist() << ")"
+              << " VALUES (";
+
+
+        size_t i = 0;
+        for (auto fd : td->fieldIterators()) {
+
+            if (fd->type == FieldType::UINT32)
+                query << td->reflection.template get<uint32_t>(obj, fd->name);
+            else if (fd->type == FieldType::VCHAR)
+                query << mysqlpp::quote << td->reflection.template get<std::string>(obj, fd->name);
+            else if (fd->type == FieldType::UINT8)
+                query << (int)td->reflection.template get<uint8_t >(obj, fd->name);
+
+            i++;
+
+            if (i != td->fieldIterators().size()){
+                query << ",";
+            }
+        }
+
+        query << ")";
+
+        mysqlpp::SimpleResult res = query.execute();
+        if (res) {
+            std::cout << "--- end ---" << std::endl;
+        }
+    }
+    catch (std::exception &er) {
+        std::cout << "Error:" << er.what() << std::endl;
+    }
+}
+
+
 // TODO: 生成DB操作
 struct PlayerDDDDDDDDD {
     PlayerDDDDDDDDD() {
@@ -162,6 +211,13 @@ struct ORM {
 
 };
 
+
+template <typename DUMMY>
+struct DB
+{
+    template<typename T>
+    void insert(TableDescriptorBase::Ptr tdbase, T &obj);
+};
 
 
 
@@ -215,11 +271,11 @@ int main() {
     std::cout << td->sql_drop() << std::endl;
     std::cout << td->sql_addfield("NAME") << std::endl;
 
-    for (uint32_t i = 0; i < 10; ++ i)
-    {
+    for (uint32_t i = 0; i < 10; ++i) {
         Player p;
-        p.id = i+10000;
+        p.id = i + 10000;
         p.age = i;
         insert(td, p);
+//        insert_mysqlpp(td, p);
     }
 }
