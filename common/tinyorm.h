@@ -47,6 +47,7 @@ public:
     std::string sql_ddl();
 
     std::string sql_type();
+
     std::string sql_default();
 
     // 字段名
@@ -59,31 +60,39 @@ public:
     uint32_t size;
 };
 
-class TableDescriptor {
+class TableDescriptorBase {
 public:
-    typedef std::shared_ptr<TableDescriptor> Ptr;
+    typedef std::shared_ptr<TableDescriptorBase> Ptr;
 
     std::string sql_create();
+
     std::string sql_drop();
+
     std::string sql_addfield(const std::string &field);
 
+    std::string sql_fieldlist();
+    std::string sql_fieldlist2();
+
 public:
-    TableDescriptor &field(const std::string &name,
-                           FieldType type,
-                           const std::string &deflt = "",
-                           size_t size = 0);
+    TableDescriptorBase &field(const std::string &name,
+                               FieldType type,
+                               const std::string &deflt = "",
+                               size_t size = 0);
 
-    TableDescriptor &key(const std::string &name);
-    TableDescriptor &keys(const std::initializer_list<std::string> &names);
+    TableDescriptorBase &key(const std::string &name);
 
-    TableDescriptor &index(const std::string &name);
-    TableDescriptor &indexs(const std::initializer_list<std::string> &names);
+    TableDescriptorBase &keys(const std::initializer_list<std::string> &names);
+
+    TableDescriptorBase &index(const std::string &name);
+
+    TableDescriptorBase &indexs(const std::initializer_list<std::string> &names);
 
     FieldDescriptor::Ptr getFieldDescriptor(const std::string &name);
+
     std::vector<FieldDescriptor::Ptr> &fieldIterators() { return fields_ordered_; }
 
 public:
-    TableDescriptor(const std::string name)
+    TableDescriptorBase(const std::string name)
             : table(name) {}
 
     // 表名
@@ -99,9 +108,23 @@ public:
 
 #include "tinyreflection.h"
 
-template <typename T>
-class TableDescriptor_T : public TableDescriptor{
+template<typename T>
+class TableDescriptor : public TableDescriptorBase {
 public:
+    TableDescriptor(const std::string &name)
+            : TableDescriptorBase(name), reflection(name) {}
+
+    template<typename PropType>
+    TableDescriptor<T> &field(PropType T::* prop,
+                              const std::string &name,
+                              FieldType type,
+                              const std::string &deflt = "",
+                              size_t size = 0) {
+        reflection.property(name, prop);
+        TableDescriptorBase::field(name, type, deflt, size);
+        return *this;
+    }
+
     Struct<T> reflection;
 };
 
@@ -112,14 +135,15 @@ public:
         return factory_;
     }
 
-    TableDescriptor &table(const std::string &name) {
-        TableDescriptor *td = new TableDescriptor(name);
-        TableDescriptor::Ptr ptr(td);
+    template<typename T>
+    TableDescriptor<T> &table(const std::string &name) {
+        TableDescriptor<T> *td = new TableDescriptor<T>(name);
+        TableDescriptorBase::Ptr ptr(td);
         tables_[name] = ptr;
         return *td;
     }
 
-    TableDescriptor::Ptr getTableDescriptor(const std::string &name) {
+    TableDescriptorBase::Ptr getTableDescriptor(const std::string &name) {
         auto it = tables_.find(name);
         if (it != tables_.end())
             return it->second;
@@ -127,7 +151,7 @@ public:
     }
 
 private:
-    std::unordered_map<std::string, TableDescriptor::Ptr> tables_;
+    std::unordered_map<std::string, TableDescriptorBase::Ptr> tables_;
 };
 
 

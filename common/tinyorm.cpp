@@ -77,7 +77,7 @@ std::string FieldDescriptor::sql_ddl() {
     return os.str();
 }
 
-std::string TableDescriptor::sql_create() {
+std::string TableDescriptorBase::sql_create() {
     std::ostringstream os;
     os << "CREATE TABLE `" << table << "` (";
 
@@ -105,11 +105,11 @@ std::string TableDescriptor::sql_create() {
     return os.str();
 }
 
-std::string TableDescriptor::sql_drop() {
+std::string TableDescriptorBase::sql_drop() {
     return std::string("DROP TABLE `") + table + "`";
 }
 
-std::string TableDescriptor::sql_addfield(const std::string &name) {
+std::string TableDescriptorBase::sql_addfield(const std::string &name) {
     std::ostringstream os;
     auto fd = getFieldDescriptor(name);
     if (fd) {
@@ -119,8 +119,30 @@ std::string TableDescriptor::sql_addfield(const std::string &name) {
     return os.str();
 }
 
+std::string TableDescriptorBase::sql_fieldlist() {
+    std::ostringstream os;
+    for (size_t i = 0; i < fields_ordered_.size(); ++i)
+    {
+        os << "`" << fields_ordered_[i]->name << "`";
+        if (i != (fields_ordered_.size() - 1))
+            os << ",";
+    }
+    return os.str();
+}
 
-TableDescriptor &TableDescriptor::field(const std::string &name, FieldType type,
+std::string TableDescriptorBase::sql_fieldlist2(){
+    std::ostringstream os;
+    for (size_t i = 0; i < fields_ordered_.size(); ++i)
+    {
+        os << ":" << fields_ordered_[i]->name << "";
+        if (i != (fields_ordered_.size() - 1))
+            os << ",";
+    }
+    return os.str();
+}
+
+
+TableDescriptorBase &TableDescriptorBase::field(const std::string &name, FieldType type,
                                         const std::string &deflt, size_t size) {
 
     FieldDescriptor::Ptr fd(new FieldDescriptor(name, type, deflt, size));
@@ -129,7 +151,7 @@ TableDescriptor &TableDescriptor::field(const std::string &name, FieldType type,
     return *this;
 }
 
-TableDescriptor &TableDescriptor::key(const std::string &name) {
+TableDescriptorBase &TableDescriptorBase::key(const std::string &name) {
     auto fd = getFieldDescriptor(name);
     if (fd) {
         keys_.push_back(fd);
@@ -137,13 +159,13 @@ TableDescriptor &TableDescriptor::key(const std::string &name) {
     return *this;
 }
 
-TableDescriptor &TableDescriptor::keys(const std::initializer_list<std::string> &names) {
+TableDescriptorBase &TableDescriptorBase::keys(const std::initializer_list<std::string> &names) {
     for (auto name : names)
         key(name);
     return *this;
 }
 
-TableDescriptor &TableDescriptor::index(const std::string &name) {
+TableDescriptorBase &TableDescriptorBase::index(const std::string &name) {
     auto fd = getFieldDescriptor(name);
     if (fd) {
         indexs_.push_back(fd);
@@ -151,13 +173,13 @@ TableDescriptor &TableDescriptor::index(const std::string &name) {
     return *this;
 }
 
-TableDescriptor &TableDescriptor::indexs(const std::initializer_list<std::string> &names) {
+TableDescriptorBase &TableDescriptorBase::indexs(const std::initializer_list<std::string> &names) {
     for (auto name : names)
         index(name);
     return *this;
 }
 
-FieldDescriptor::Ptr TableDescriptor::getFieldDescriptor(const std::string &name) {
+FieldDescriptor::Ptr TableDescriptorBase::getFieldDescriptor(const std::string &name) {
     auto it = fields_.find(name);
     if (it != fields_.end())
         return it->second;
