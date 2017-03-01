@@ -1,14 +1,12 @@
 # 玩家数据
----
 Player:
   - id:
-      type: uint32
-      primary_key: true
-      comment: 标识符
+      $type: uint32
+      $comment: 标识符
   - name:
-      type: char[32]
-      comment: i am a name
-  - score: float
+      $type: char32
+      $comment: i am a name
+  - score: float #comment
   - bin:   string
   - v_int8  : int8
   - v_uint8 : uint8
@@ -22,19 +20,23 @@ Player:
   - v_double : double
   - v_bool : bool
   - v_string : string
-  - v_char : char[32]
+  - v_char : char32
   - v_bytes : bytes
-  - v_bytes_tiny : bytes8
-  - v_bytes_medium : bytes24
+  - v_bytes_tiny : bytes8            # tinybytes
+  - v_bytes_medium : bytes24         # mediumbytes
   - v_bytes_long : bytes32
+  - $key     : id
+  - $index   : name
+  - $comment : Player Struct
 
 #  - error: [1,2]
 
 # 国家数据
-#---
-#Country:
-#  - id:
-#      type: unsigned int
-#      primary_key: true
-#  - name: {type: cstring, size: 32, comment: 这是 名字}
-#  - is_strong: bool
+Country:
+  - id    : {$type: uint32,   $comment: Country ID }
+  - zone  : {$type: uint32,   $comment: Zone ID }
+  - name  : {$type: string,   $comment: Country Name }
+  - rank  : {$type: uint16,   $comment: 'Country Rank' }
+  - $key   : [id, zone]
+  - $index : [name, rank]
+  - $comment: Country Info

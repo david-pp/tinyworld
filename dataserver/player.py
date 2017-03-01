@@ -8,6 +8,7 @@ import os
 import re
 import getopt
 
+
 # reload(sys)
 # sys.setdefaultencoding('UTF-8')
 
@@ -22,50 +23,50 @@ class PrimitiveTypes(object):
     types = {
 
         # 整数-有符号
-        "int8" : ("int8" , "sint32", "tinyint(3)  NOT NULL default '0'", '0'),
+        "int8": ("int8", "sint32", "tinyint(3)  NOT NULL default '0'", '0'),
         "int16": ("int16", "sint32", "smallint(5) NOT NULL default '0'", '0'),
         "int32": ("int32", "sint32", "int(10)     NOT NULL default '0'", '0'),
         "int64": ("int64", "sint64", "bigint(20)  NOT NULL default '0'", '0'),
 
         # 整数-无符号
-        "uint8" : ("uint8" , "uint32", "tinyint(3)  unsigned NOT NULL default '0'", '0'),
+        "uint8": ("uint8", "uint32", "tinyint(3)  unsigned NOT NULL default '0'", '0'),
         "uint16": ("uint16", "uint32", "smallint(5) unsigned NOT NULL default '0'", '0'),
         "uint32": ("uint32", "uint32", "int(10)     unsigned NOT NULL default '0'", '0'),
         "uint64": ("uint64", "uint64", "bigint(20)  unsigned NOT NULL default '0'", '0'),
 
         # 浮点
-        "float" : ("float" , "float",  "float NOT NULL default '0'", '0'),
-        "double" : ("double", "double", "double NOT NULL default '0'", '0'),
+        "float": ("float", "float", "float NOT NULL default '0'", '0'),
+        "double": ("double", "double", "double NOT NULL default '0'", '0'),
 
         # 布尔
-        "bool"   : ("bool",  "bool",  "bool NOT NULL default '0'", 'false'),
+        "bool": ("bool", "bool", "bool NOT NULL default '0'", 'false'),
 
         # 字符串
-        "string" : ("std::string",  "bytes", "text", ''),
-        "char"   : ("char $$[#]",   "bytes", "varchar(#) NOT NULL default ''", '\"\"'),
+        "string": ("std::string", "bytes", "text", ''),
+        "char": ("char $$[#]", "bytes", "varchar(#) NOT NULL default ''", '\"\"'),
 
         # 二进制
-        "bytes"  : ("std::string",  "bytes", "blob",       ''),
-        "bytes8" : ("std::string",  "bytes", "tinyblob",   ''),
-        "bytes24": ("std::string",  "bytes", "mediumblob", ''),
-        "bytes32": ("std::string",  "bytes", "longblob",   ''),
+        "bytes": ("std::string", "bytes", "blob", ''),
+        "bytes8": ("std::string", "bytes", "tinyblob", ''),
+        "bytes24": ("std::string", "bytes", "mediumblob", ''),
+        "bytes32": ("std::string", "bytes", "longblob", ''),
     }
 
     def __init__(self):
         pass
 
     def isValid(self, type):
-        charmatched = re.match(r'char\[(.*)\]', type)
+        charmatched = re.match(r'char(\d+)', type)
         if charmatched:
             return True
         return self.types.has_key(type)
 
     def getTypeDef(self, type):
-        charmatched = re.match(r'char\[(.*)\]', type)
+        charmatched = re.match(r'char(\d+)', type)
         if charmatched:
             num = charmatched.group(1)
             return tuple(map(
-                lambda x : x.replace('#', num),
+                lambda x: x.replace('#', num),
                 self.types['char']))
 
         if self.types.has_key(type):
@@ -73,11 +74,14 @@ class PrimitiveTypes(object):
         else:
             return ()
 
+
 primitive = PrimitiveTypes()
+
 
 def test_primitive():
     print primitive.getTypeDef("int32")
     print primitive.getTypeDef("char[32]")
+
 
 def printline(file, depth, text):
     """print line with indent"""
@@ -92,11 +96,9 @@ def printline(file, depth, text):
 #
 #############################################
 class StructField:
-
     def __init__(self):
         # 字段名
         self.name = ''
-
         # 字段类型
         self.type = ''
         # 对应的C++类型
@@ -107,11 +109,8 @@ class StructField:
         self.type_sql = ''
         # 默认值
         self.default = ''
-
         # 注释
         self.comment = ''
-        # 是键值吗?
-        self.iskey = False
 
     def __str__(self):
         return "%s,%s,%s" % (self.name, self.type, self.comment.encode('utf-8'))
@@ -128,12 +127,11 @@ class StructField:
         if isinstance(attributes, str):
             self.type = attributes
         elif isinstance(attributes, dict):
-            self.type = attributes['type']
+            if attributes.has_key('$type'):
+                self.type = attributes['$type']
 
-            if attributes.has_key('comment'):
-                self.comment = attributes['comment']
-            if attributes.has_key('primary_key'):
-                self.iskey = True
+            if attributes.has_key('$comment'):
+                self.comment = attributes['$comment']
 
         self.type = self.type.strip()
         typedef = primitive.getTypeDef(self.type)
@@ -143,15 +141,17 @@ class StructField:
             self.type_sql = typedef[2]
             self.default = typedef[3]
             return True
+        else:
+            print yamlfield, "has error!"
+
         return False
 
     def makeFieldInfo(self):
-        info = { 'name': '%s' % self.name.upper(), 'ddl': ''}
+        info = {'name': '%s' % self.name.upper(), 'ddl': ''}
         typedef = primitive.getTypeDef(self.type)
         if len(typedef) >= 3:
             info['ddl'] = typedef[2]
         return info
-
 
 
 #############################################
@@ -167,6 +167,10 @@ class StructDescription:
         self.fields = []
         # 主键
         self.primary_keys = []
+        # 索引
+        self.indexs = []
+        # 注释
+        self.comment = ''
 
     def dump(self):
         print 'Struct:%s' % self.name
@@ -174,165 +178,194 @@ class StructDescription:
         for f in self.fields:
             print " -", f
         for k in self.primary_keys:
-            print " - KEYS:", k
+            print " - $key:", k
+        for k in self.indexs:
+            print " - $index:", k
 
     def makeFieldList(self, fields):
         flist = ""
         for i in range(len(fields)):
             flist += '"%s"' % fields[i].name.upper()
-            if i != len(fields)-1:
+            if i != len(fields) - 1:
                 flist += ','
         return flist
 
     def parseByYAML(self, name, doc):
         self.name = name
         for yamlfield in doc:
-            field = StructField()
-            if field.parseFromYAML(yamlfield):
-                self.fields.append(field)
-                if field.iskey:
-                    self.primary_keys.append(field)
+            fieldname = yamlfield.keys()[0]
+            # 保留关键字
+            if fieldname[0] == '$':
+                attributes = yamlfield[fieldname]
+                if fieldname == '$key':
+                    self.primary_keys.append(attributes)
+                elif fieldname == '$index':
+                    self.indexs.append(attributes)
+                elif fieldname == '$comment':
+                    self.comment = attributes
+            # 正常字段
+            else:
+                field = StructField()
+                if field.parseFromYAML(yamlfield):
+                    self.fields.append(field)
+                    # if field.iskey:
+                    #     self.primary_keys.append(field)
 
     def generateStruct(self, depth, file=sys.stdout):
+        printline(file, depth, '')
+        if len(self.comment) > 0:
+            printline(file, depth, '// %s' % self.comment)
+        else:
+            printline(file, depth, '')
+
         printline(file, depth, 'struct %s {' % self.name)
         for f in self.fields:
             if len(f.comment):
-                printline(file, depth+1, '/// %s' % f.comment.encode('utf-8'))
+                printline(file, depth + 1, '/// %s' % f.comment.encode('utf-8'))
 
             if f.type_cpp.find('char') != -1:
-                printline(file, depth+1, '%s  = "";' % (f.type_cpp.replace('$$', f.name)))
+                printline(file, depth + 1, '%s  = "";' % (f.type_cpp.replace('$$', f.name)))
                 continue
 
             if len(f.default):
-                printline(file, depth+1, '%s %s = %s;' % (f.type_cpp, f.name, f.default))
+                printline(file, depth + 1, '%s %s = %s;' % (f.type_cpp, f.name, f.default))
             else:
-                printline(file, depth+1, '%s %s;' % (f.type_cpp, f.name))
+                printline(file, depth + 1, '%s %s;' % (f.type_cpp, f.name))
 
         printline(file, depth, '};')
 
-    def generateDBDescriptor(self, depth, file = sys.stdout):
+    def generateStructSet(self, depth, file=sys.stdout):
+        printline(file, depth, '')
+        # printline(file, depth, 'typedef boost::multi_index_container<')
+        # printline(file, depth+2, '%s,' % self.name)
+        # printline(file, depth+1, '> %sSet;' % self.name)
+
+    def generateDBDescriptor(self, depth, file=sys.stdout):
         classname = self.name + "DBDescriptor"
         tablename = self.name.upper()
 
         printline(file, depth, 'class %s : public DBDescriptor {' % classname)
         printline(file, depth, 'public:')
-        printline(file, depth+1, 'typedef %s ObjectType;' % self.name)
-        printline(file, depth+1, '')
+        printline(file, depth + 1, 'typedef %s ObjectType;' % self.name)
+        printline(file, depth + 1, '')
 
         # 构造函数
-        printline(file, depth+1, '%s() {' % classname)
-        printline(file, depth+2,    'table = "%s";' % tablename)
-        printline(file, depth+2,    'keys = {%s};' % self.makeFieldList(self.primary_keys))
-        printline(file, depth+2,    'fields = {')
+        printline(file, depth + 1, '%s() {' % classname)
+        printline(file, depth + 2, 'table = "%s";' % tablename)
+        printline(file, depth + 2, 'keys = {%s};' % self.makeFieldList(self.primary_keys))
+        printline(file, depth + 2, 'fields = {')
         for f in self.fields:
             info = f.makeFieldInfo()
-            printline(file, depth+3,    '{"%s", "%s"},' % (info['name'], info['ddl']))
-        printline(file, depth+2,    '};')
-        printline(file, depth+1, '};')
-        printline(file, depth+1, '')
+            printline(file, depth + 3, '{"%s", "%s"},' % (info['name'], info['ddl']))
+        printline(file, depth + 2, '};')
+        printline(file, depth + 1, '};')
+        printline(file, depth + 1, '')
 
         # object2Query
-        printline(file, depth+1, 'void object2Query(mysqlpp::Query &query, const void* objptr) {')
-        printline(file, depth+2,    'const ObjectType& object = *(ObjectType*)objptr;')
+        printline(file, depth + 1, 'void object2Query(mysqlpp::Query &query, const void* objptr) {')
+        printline(file, depth + 2, 'const ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.fields)):
             if self.fields[i].type_proto == 'bytes':
-                printline(file, depth+2, 'query << mysqlpp::quote << object.%s;' % self.fields[i].name)
+                printline(file, depth + 2, 'query << mysqlpp::quote << object.%s;' % self.fields[i].name)
             else:
                 if self.fields[i].type == 'int8' or self.fields[i].type == 'uint8':
-                    printline(file, depth+2, 'query << (int)object.%s;' % self.fields[i].name)
+                    printline(file, depth + 2, 'query << (int)object.%s;' % self.fields[i].name)
                 else:
-                    printline(file, depth+2, 'query << object.%s;' % self.fields[i].name)
-            if i != len(self.fields)-1:
-                printline(file, depth+2, 'query << ",";')
-        printline(file, depth+1, '};')
-        printline(file, depth+1, '')
+                    printline(file, depth + 2, 'query << object.%s;' % self.fields[i].name)
+            if i != len(self.fields) - 1:
+                printline(file, depth + 2, 'query << ",";')
+        printline(file, depth + 1, '};')
+        printline(file, depth + 1, '')
 
         # pair2Query
-        printline(file, depth+1, 'void pair2Query(mysqlpp::Query &query, const void* objptr) {')
-        printline(file, depth+2,    'const ObjectType& object = *(ObjectType*)objptr;')
+        printline(file, depth + 1, 'void pair2Query(mysqlpp::Query &query, const void* objptr) {')
+        printline(file, depth + 2, 'const ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.fields)):
             if self.fields[i].type_proto == 'bytes':
-                printline(file, depth+2, 'query << "`%s`=" << mysqlpp::quote << object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
+                printline(file, depth + 2, 'query << "`%s`=" << mysqlpp::quote << object.%s;' % (
+                self.fields[i].name.upper(), self.fields[i].name))
             else:
                 if self.fields[i].type == 'int8' or self.fields[i].type == 'uint8':
-                    printline(file, depth+2, 'query << "`%s`=" << (int)object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
+                    printline(file, depth + 2, 'query << "`%s`=" << (int)object.%s;' % (
+                    self.fields[i].name.upper(), self.fields[i].name))
                 else:
-                    printline(file, depth+2, 'query << "`%s`=" << object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
-            if i != len(self.fields)-1:
-                printline(file, depth+2, 'query << ",";')
-        printline(file, depth+1, '};')
-        printline(file, depth+1, '')
+                    printline(file, depth + 2,
+                              'query << "`%s`=" << object.%s;' % (self.fields[i].name.upper(), self.fields[i].name))
+            if i != len(self.fields) - 1:
+                printline(file, depth + 2, 'query << ",";')
+        printline(file, depth + 1, '};')
+        printline(file, depth + 1, '')
 
         # key2Query
-        printline(file, depth+1, 'void key2Query(mysqlpp::Query &query, const void* objptr){')
-        printline(file, depth+2,    'const ObjectType& object = *(ObjectType*)objptr;')
+        printline(file, depth + 1, 'void key2Query(mysqlpp::Query &query, const void* objptr){')
+        printline(file, depth + 2, 'const ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.primary_keys)):
             if self.primary_keys[i].type_proto == 'bytes':
-                printline(file, depth+2, 'query << "`%s`=" << mysqlpp::quote << object.%s;' % (self.primary_keys[i].name.upper(), self.primary_keys[i].name))
+                printline(file, depth + 2, 'query << "`%s`=" << mysqlpp::quote << object.%s;' % (
+                self.primary_keys[i].name.upper(), self.primary_keys[i].name))
             else:
                 if self.fields[i].type == 'int8' or self.fields[i].type == 'uint8':
-                    printline(file, depth+2, 'query << "`%s`=" << (int)object.%s;' % (self.primary_keys[i].name.upper(), self.primary_keys[i].name))
+                    printline(file, depth + 2, 'query << "`%s`=" << (int)object.%s;' % (
+                    self.primary_keys[i].name.upper(), self.primary_keys[i].name))
                 else:
-                    printline(file, depth+2, 'query << "`%s`=" << object.%s;' % (self.primary_keys[i].name.upper(), self.primary_keys[i].name))
-            if i != len(self.primary_keys)-1:
-                printline(file, depth+2, 'query << ",";')
-        printline(file, depth+1, '};')
-        printline(file, depth+1, '')
+                    printline(file, depth + 2, 'query << "`%s`=" << object.%s;' % (
+                    self.primary_keys[i].name.upper(), self.primary_keys[i].name))
+            if i != len(self.primary_keys) - 1:
+                printline(file, depth + 2, 'query << ",";')
+        printline(file, depth + 1, '};')
+        printline(file, depth + 1, '')
 
         # record2Object
-        printline(file, depth+1, 'bool record2Object(mysqlpp::Row& record, void* objptr){')
-        printline(file, depth+2,    'if (record.size() != fields.size()) return false;');
-        printline(file, depth+2,    'ObjectType& object = *(ObjectType*)objptr;')
+        printline(file, depth + 1, 'bool record2Object(mysqlpp::Row& record, void* objptr){')
+        printline(file, depth + 2, 'if (record.size() != fields.size()) return false;');
+        printline(file, depth + 2, 'ObjectType& object = *(ObjectType*)objptr;')
         for i in range(len(self.fields)):
             f = self.fields[i]
             if f.type.find('char') == 0:
-                printline(file, depth+2, 'strncpy(object.%s, record[%u].data(), sizeof(object.%s)-1);' % (f.name, i, f.name))
+                printline(file, depth + 2,
+                          'strncpy(object.%s, record[%u].data(), sizeof(object.%s)-1);' % (f.name, i, f.name))
             elif f.type_cpp == 'std::string':
-                printline(file, depth+2, 'object.%s.assign(record[%u].data(), record[%u].size());' % (f.name, i, i))
+                printline(file, depth + 2, 'object.%s.assign(record[%u].data(), record[%u].size());' % (f.name, i, i))
             else:
-                printline(file, depth+2, 'object.%s = record[%u];' % (self.fields[i].name, i))
-        printline(file, depth+1, '};')
-        printline(file, depth+1, '')
+                printline(file, depth + 2, 'object.%s = record[%u];' % (self.fields[i].name, i))
+        printline(file, depth + 1, '};')
+        printline(file, depth + 1, '')
 
         printline(file, depth, '};')
 
-    def generateProtobuf(self, depth, file = sys.stdout):
+    def generateProtobuf(self, depth, file=sys.stdout):
         printline(file, depth, 'package bin;')
         printline(file, depth, '')
         printline(file, depth, 'message %s {' % self.name)
         for i in range(len(self.fields)):
             f = self.fields[i]
-            printline(file, depth+1, 'optional %s %s = %d;' % (f.type_proto, f.name, i+1))
+            printline(file, depth + 1, 'optional %s %s = %d;' % (f.type_proto, f.name, i + 1))
         printline(file, depth, '}')
         printline(file, depth, '')
 
-    def generateBinDescriptor(self, depth, file = sys.stdout):
+    def generateBinDescriptor(self, depth, file=sys.stdout):
         classname = self.name + "BinDescriptor"
 
         printline(file, depth, 'struct %s {' % classname)
-        printline(file, depth+1, "typedef %s ObjectType;" % self.name)
-        printline(file, depth+1, "typedef bin::%s ProtoType;" % self.name)
-        printline(file, depth+1, "")
+        printline(file, depth + 1, "typedef %s ObjectType;" % self.name)
+        printline(file, depth + 1, "typedef bin::%s ProtoType;" % self.name)
+        printline(file, depth + 1, "")
 
-        printline(file, depth+1, "static void obj2proto(ProtoType& proto, const ObjectType& object) {")
+        printline(file, depth + 1, "static void obj2proto(ProtoType& proto, const ObjectType& object) {")
         for f in self.fields:
-            printline(file, depth+2, "proto.set_%s(object.%s);" % (f.name, f.name))
-        printline(file, depth+1, "}")
-        printline(file, depth+1, "")
+            printline(file, depth + 2, "proto.set_%s(object.%s);" % (f.name, f.name))
+        printline(file, depth + 1, "}")
+        printline(file, depth + 1, "")
 
-        printline(file, depth+1, "static void proto2obj(ObjectType& object, const ProtoType& proto) {")
+        printline(file, depth + 1, "static void proto2obj(ObjectType& object, const ProtoType& proto) {")
         for f in self.fields:
             if f.type.find('char') == 0:
-                printline(file, depth+2, "strncpy(object.%s, proto.%s().c_str(), sizeof(object.%s)-1);" % (f.name, f.name, f.name))
+                printline(file, depth + 2,
+                          "strncpy(object.%s, proto.%s().c_str(), sizeof(object.%s)-1);" % (f.name, f.name, f.name))
             else:
-                printline(file, depth+2, "object.%s = proto.%s();" % (f.name, f.name))
-        printline(file, depth+1, "}")
+                printline(file, depth + 2, "object.%s = proto.%s();" % (f.name, f.name))
+        printline(file, depth + 1, "}")
         printline(file, depth, '};')
-
-
-
-
-
 
 
 # ymlfile = file('player.yml', 'r')
@@ -353,7 +386,6 @@ class StructDescription:
 #######################################################
 
 class TinyCacheCompiler(object):
-
     def __init__(self):
         self.dir_input = ''
         self.dir_struct = ''
@@ -384,14 +416,24 @@ class TinyCacheCompiler(object):
         print self.outputFileName(filename, self.dir_proto, 'proto')
 
     def parse_ddl(self, filename, doc):
+        if (self.dir_struct):
+            outfile = open(self.outputFileName(filename, self.dir_struct, 'h'), 'w+')
+            print >> outfile, '//'
+            print >> outfile, '// !!ATTENTION: generated by tools, do not edit it manually!'
+            print >> outfile, '//'
+            outfile.close()
+
         for name in doc:
             struct = StructDescription()
             struct.parseByYAML(name, doc[name])
-            # struct.dump()
+            struct.dump()
 
             if (self.dir_struct):
-                outfile = open(self.outputFileName(filename, self.dir_struct, 'h'), 'w+')
+                outfile = open(self.outputFileName(filename, self.dir_struct, 'h'), 'a+')
                 struct.generateStruct(0, outfile)
+                struct.generateStructSet(0, outfile)
+
+            continue
 
             if (self.dir_db):
                 outfile = open(self.outputFileName(filename, self.dir_db, 'db.h'), 'w+')
@@ -405,13 +447,13 @@ class TinyCacheCompiler(object):
                 outfile.close()
 
                 # 生成proto对应的c++文件
-                print os.popen('/usr/local/bin/protoc -I%s --cpp_out=%s %s' % (self.dir_proto, self.dir_proto, protofilename)).read()
+                print os.popen('/usr/local/bin/protoc -I%s --cpp_out=%s %s' % (
+                self.dir_proto, self.dir_proto, protofilename)).read()
 
                 # 生成BinDescriptor文件
                 outfile = open(self.outputFileName(filename, self.dir_db, 'bin.h'), 'w+')
                 struct.generateBinDescriptor(0, outfile)
                 outfile.close()
-
 
 
 #######################################################
@@ -421,6 +463,7 @@ class TinyCacheCompiler(object):
 #######################################################
 
 tcc = TinyCacheCompiler()
+
 
 def Usage():
     print "usage:", sys.argv[0], "[options] schema1.yml schema2.yml ..."

@@ -149,6 +149,7 @@ public:
 		object.v_bytes_tiny.assign(record[18].data(), record[18].size());
 		object.v_bytes_medium.assign(record[19].data(), record[19].size());
 		object.v_bytes_long.assign(record[20].data(), record[20].size());
+		return true;
 	};
 	
 };

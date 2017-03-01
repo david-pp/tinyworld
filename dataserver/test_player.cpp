@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdlib>
 #include <cstdio>
+#include <boost/multi_index_container.hpp>
 
 #include "tinyworld.h"
 #include "mylogger.h"
