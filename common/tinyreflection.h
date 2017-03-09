@@ -7,36 +7,51 @@
 #include <memory>
 #include <unordered_map>
 #include <typeinfo>
+#include <type_traits>
 #include <boost/any.hpp>
+#include "tinyserializer.h"
+
 
 template<typename T>
 class Property {
 public:
     typedef std::shared_ptr<Property> Ptr;
 
-    Property(const std::string &name) : name_(name) {}
+    Property(const std::string &name, uint16_t id)
+            : name_(name), id_(id) {}
 
+    const std::string &name() { return name_; }
+
+    uint16_t id() { return id_; }
+
+public:
     virtual const std::type_info &type() = 0;
 
     virtual boost::any get(T &) = 0;
 
     virtual void set(T &, boost::any &) = 0;
 
-    const std::string &name() { return name_; }
+    virtual std::string serialize(const T &) = 0;
+
+    virtual bool deserialize(T &object, const std::string &bin) = 0;
 
 private:
     std::string name_;
+    uint16_t id_;
 };
 
 
 template<typename T, typename MemFn>
 class Property_T : public Property<T> {
 public:
-    Property_T(const std::string &name, MemFn fn)
-            : Property<T>(name), fn_(fn) {}
+    Property_T(const std::string &name, uint16_t id, MemFn fn)
+            : Property<T>(name, id), fn_(fn) {}
+
+    using PropRefType = typename std::result_of<MemFn(T &)>::type;
+    using PropType = typename std::remove_reference<PropRefType>::type;
 
     virtual const std::type_info &type() final {
-        return typeid(decltype(fn_(T())));
+        return typeid(PropType);
     };
 
     boost::any get(T &obj) final {
@@ -44,41 +59,56 @@ public:
     }
 
     void set(T &obj, boost::any &v) final {
-        fn_(obj) = boost::any_cast<decltype(fn_(obj))>(v);
+        fn_(obj) = boost::any_cast<PropType>(v);
     }
 
+    std::string serialize(const T &obj) final {
+        return tiny::serialize(fn_(obj));
+    }
+
+    bool deserialize(T &obj, const std::string &bin) final {
+        return tiny::deserialize(fn_(obj), bin);
+    }
 
 private:
     MemFn fn_;
 };
 
 template<typename T, typename MemFn>
-Property_T<T, MemFn> *makePropery(const std::string &name, MemFn fn) {
-    return new Property_T<T, MemFn>(name, fn);
+Property_T<T, MemFn> *makePropery(const std::string &name, uint16_t id, MemFn fn) {
+    return new Property_T<T, MemFn>(name, id, fn);
 }
 
 
-///////////////////////////////////////////////
-
+struct StructBase {
+};
 
 template<typename T>
-struct Struct {
+struct Struct : public StructBase {
 public:
     typedef std::vector<typename Property<T>::Ptr> PropertyContainer;
     typedef std::unordered_map<std::string, typename Property<T>::Ptr> PropertyMap;
 
-    Struct(const std::string &name) : name_(name) {}
+    Struct(const std::string &name, uint16_t version = 0)
+            : name_(name), version_(version) {}
+
+    virtual ~Struct() {}
 
     T *clone() { return new T; }
 
     template<typename PropType>
-    Struct<T> &property(const std::string &name, PropType T::* prop) {
+    Struct<T> &property(const std::string &name, PropType T::* prop, uint16_t id = 0) {
         if (!hasPropery(name)) {
-            typename Property<T>::Ptr ptr(makePropery<T>(name, std::mem_fn(prop)));
+            typename Property<T>::Ptr ptr(makePropery<T>(name, id, std::mem_fn(prop)));
             properties_[name] = ptr;
             properties_ordered_.push_back(ptr);
         }
 
+        return *this;
+    }
+
+    Struct<T> &version(uint16_t ver) {
+        version_ = ver;
         return *this;
     }
 
@@ -90,7 +120,7 @@ public:
 
     PropertyContainer propertyIterator() { return properties_ordered_; }
 
-    typename Property<T>::Ptr getPropertyByName(const std::string& name) {
+    typename Property<T>::Ptr getPropertyByName(const std::string &name) {
         auto it = properties_.find(name);
         if (it != properties_.end())
             return it->second;
@@ -98,7 +128,7 @@ public:
     }
 
     template<typename PropType>
-    PropType get(T& obj, const std::string &propname) {
+    PropType get(T &obj, const std::string &propname) {
         auto prop = getPropertyByName(propname);
         if (prop)
             return boost::any_cast<PropType>(prop->get(obj));
@@ -106,7 +136,7 @@ public:
     }
 
     template<typename PropType>
-    void set(T& obj, const std::string &propname, const PropType &value) {
+    void set(T &obj, const std::string &propname, const PropType &value) {
         auto prop = getPropertyByName(propname);
         if (prop) {
             boost::any v = value;
@@ -114,46 +144,17 @@ public:
         }
     }
 
+    const std::string &name() { return name_; }
+
+    uint16_t version() { return version_; }
+
 private:
     std::string name_;
     PropertyContainer properties_ordered_;
     PropertyMap properties_;
+
+    uint16_t version_ = 0;
 };
-
-
-template<typename T>
-struct Reflection : public T {
-    static Struct<T> *descriptor;
-
-    template<typename PropType>
-    PropType get(const std::string &propname) {
-        auto prop = descriptor->getPropertyByName(propname);
-        if (prop)
-            return boost::any_cast<PropType>(prop->get(*this));
-        return PropType();
-    }
-
-    template<typename PropType>
-    void set(const std::string &propname, const PropType &value) {
-        auto prop = descriptor->getPropertyByName(propname);
-        if (prop) {
-            boost::any v = value;
-            prop->set(*this, v);
-        }
-    }
-
-    void dump() {
-        for (auto it : descriptor->propertyIterator()) {
-            if (it->type() == typeid(int))
-                std::cout << it->name()  << ":" << get<int>(it->name()) << std::endl;
-            else if (it->type() == typeid(std::string))
-                std::cout << it->name() << ":" << get<std::string>(it->name()) << std::endl;
-        }
-    }
-};
-
-template<typename T>
-Struct<T> *Reflection<T>::descriptor = NULL;
 
 struct StructFactory {
     static StructFactory &instance() {
@@ -162,28 +163,41 @@ struct StructFactory {
     }
 
     template<typename T>
-    Struct<T> &declare() {
-        std::string name = typeid(T).name();
-        Struct<T> *desc = new Struct<T>(name);
-        Reflection<T>::descriptor = desc;
-        structs_[name] = desc;
+    Struct<T> &declare(const std::string name = "") {
+        std::string type_name = typeid(T).name();
+        std::string struct_name = name;
+        if (name.empty())
+            struct_name = type_name;
+
+        auto desc = std::make_shared<Struct<T>>(struct_name);
+        structs_by_typeid_[type_name] = desc;
+        structs_by_name_[struct_name] = desc;
         return *desc;
     }
 
     template<typename T>
-    Struct<T> *classByType() {
-        std::string name = typeid(T).name();
-        if (structs_.find(name) != structs_.end())
-            return boost::any_cast<Struct<T> *>(structs_[name]);
+    Struct<T> *structByType() {
+        std::string type_name = typeid(T).name();
+        auto it = structs_by_typeid_.find(type_name);
+        if (it != structs_by_typeid_.end())
+            return static_cast<Struct<T> *>(it->second.get());
+        return NULL;
+    }
+
+    template<typename T>
+    Struct<T> *structByName(const std::string &name) {
+        auto it = structs_by_name_.find(name);
+        if (it != structs_by_name_.end())
+            return static_cast<Struct<T> *>(it->second.get());
         return NULL;
     }
 
 private:
-    typedef std::unordered_map<std::string, boost::any> Structs;
+    typedef std::unordered_map<std::string, std::shared_ptr<StructBase>> Structs;
 
-    Structs structs_;
+    Structs structs_by_typeid_;
+    Structs structs_by_name_;
 };
-
 
 
 #endif //TINYWORLD_TINYREFLECTION_H
