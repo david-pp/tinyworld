@@ -1,14 +1,14 @@
 #ifndef TINYWORLD_TINYSERIALIZER_H
 #define TINYWORLD_TINYSERIALIZER_H
 
-#include <string>
-#include <utility>
+#include "tinyreflection.h"
 
 template<typename T>
-struct TinySerializer {
+struct TinySerializerImpl<T, true> {
     static bool serialize(const T &object, std::string &bin) {
+
         std::cout << __PRETTY_FUNCTION__ << std::endl;
-        bin = typeid(T).name();
+        bin = "pod";
         return true;
     }
 
@@ -17,21 +17,41 @@ struct TinySerializer {
     }
 };
 
-namespace tiny {
-    template<typename T>
-    inline std::string serialize(T &&object) {
-
+template<typename T>
+struct TinySerializerImpl<T, false> {
+    static bool serialize(const T &object, std::string &bin) {
         std::cout << __PRETTY_FUNCTION__ << std::endl;
-        std::string bin;
-        TinySerializer<T>::serialize(object, bin);
-        return bin;
+        auto reflection = StructFactory::instance().structByType<T>();
+        if (reflection) {
+            bin = "(" + reflection->name() + ":";
+            for (auto prop : reflection->propertyIterator()) {
+                bin += prop->serialize(object) + ",";
+            }
+
+            bin += ")";
+            return true;
+        } else {
+            bin = "unkown";
+            return false;
+        }
     }
 
-    template <typename T>
-    inline bool deserialize(T &&object, const std::string &bin) {
-        std::cout << __PRETTY_FUNCTION__ << std::endl;
-        return TinySerializer<T>::deserialize(object, bin);
+    static bool deserialize(T &object, const std::string &bin) {
+        return true;
     }
-}
+};
+
+template<>
+struct TinySerializer<std::string> {
+    static bool serialize(const std::string &object, std::string &bin) {
+        bin = "string";
+        return true;
+    }
+
+    static bool deserialize(std::string &object, const std::string &bin) {
+        return true;
+    }
+};
+
 
 #endif //TINYWORLD_TINYSERIALIZER_H

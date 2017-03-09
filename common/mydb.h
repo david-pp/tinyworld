@@ -5,6 +5,7 @@
 #include <boost/thread.hpp>
 #include <boost/noncopyable.hpp>
 #include "pool.h"
+#include "pool_sharding.h"
 
 class MySqlConnection : public mysqlpp::Connection 
 {

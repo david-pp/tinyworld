@@ -1,4 +1,5 @@
 #include "tinyreflection.h"
+#include "tinyserializer.h"
 
 struct Player {
     int id = 0;
@@ -20,9 +21,11 @@ Register reg__;
 void test_serializer() {
     Player p;
 
-    std::string bin = tiny::serialize(Player());
+    std::string bin = tiny::serialize(p);
 
     tiny::deserialize(p, bin);
+
+    std::cout << bin << std::endl;
 }
 
 
@@ -47,7 +50,6 @@ void test_r() {
             std::cout << prop->name() << ":" << reflection->get<std::string>(p, prop->name())  << std::endl;
     }
 }
-
 
 int main() {
     test_r();

@@ -29,7 +29,7 @@ endforeach (PB ${PROTOS})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 
-add_definitions(-DTINYLOGGER_LOG4CXX)
+#add_definitions(-DTINYLOGGER_LOG4CXX)
 
 add_executable(test_logger test_logger.cpp)
 target_link_libraries(test_logger log4cxx apr-1 aprutil-1 iconv)
@@ -51,6 +51,8 @@ include_directories(/usr/local/include/soci
 link_directories(/usr/local/lib64)
 add_executable(test_orm test_orm.cpp)
 target_link_libraries(test_orm tinyworld soci_core soci_mysql mysqlpp )
+
+add_executable(test_reflection test_reflection.cpp)
 
 #
 #add_executable(test_zmq  test.cpp)

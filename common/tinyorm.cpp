@@ -71,9 +71,17 @@ std::string FieldDescriptor::sql_default() {
 std::string FieldDescriptor::sql_ddl() {
     std::ostringstream os;
     os << "`" << name << "`"
-       << " " << sql_type()
-       << " NOT NULL DEFAULT '" << sql_default() << "'";
+       << " " << sql_type();
 
+    if (FieldType::STRING == type ||
+            FieldType::BYTES == type ||
+            FieldType::BYTES8 == type ||
+            FieldType::BYTES24 == type ||
+            FieldType::BYTES32 == type ||
+            FieldType::OBJECT == type )
+        return os.str();
+
+    os << " NOT NULL DEFAULT '" << sql_default() << "'";
     return os.str();
 }
 

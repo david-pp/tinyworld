@@ -9,7 +9,7 @@
 #include <typeinfo>
 #include <type_traits>
 #include <boost/any.hpp>
-#include "tinyserializer.h"
+#include "tinyserializer_dec.h"
 
 
 template<typename T>
@@ -198,6 +198,5 @@ private:
     Structs structs_by_typeid_;
     Structs structs_by_name_;
 };
-
 
 #endif //TINYWORLD_TINYREFLECTION_H

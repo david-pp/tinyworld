@@ -6,6 +6,8 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include "tinyreflection.h"
+#include "tinyserializer.h"
 
 enum class FieldType : uint8_t {
     INT8,
@@ -106,7 +108,7 @@ public:
     std::unordered_map<std::string, FieldDescriptor::Ptr> fields_;
 };
 
-#include "tinyreflection.h"
+
 
 template<typename T>
 class TableDescriptor : public TableDescriptorBase {
@@ -130,6 +132,7 @@ public:
 
 class TableFactory {
 public:
+    typedef std::unordered_map<std::string, TableDescriptorBase::Ptr> Tables;
     static TableFactory &instance() {
         static TableFactory factory_;
         return factory_;
@@ -150,9 +153,10 @@ public:
         return nullptr;
     }
 
-private:
-    std::unordered_map<std::string, TableDescriptorBase::Ptr> tables_;
-};
+    Tables& tables() { return tables_; }
 
+private:
+    Tables tables_;
+};
 
 #endif //TINYWORLD_TINYORM_H
