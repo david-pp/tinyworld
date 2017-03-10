@@ -9,6 +9,8 @@
 #include "tinyorm.h"
 #include "tinylogger.h"
 
+#include "tinyorm_mysql.h"
+
 struct PoDMem {
     uint32_t value;
 };
@@ -38,7 +40,7 @@ struct Player {
     PoDMem obj1;
     NonPoDMem obj2;
 
-    void dump() {
+    void dump() const {
         std::cout << "Player:" << id << "," << name << "," << (int) age << std::endl;
     }
 };
@@ -141,78 +143,31 @@ typedef std::unordered_map<uint32_t, Player> PlayerSet;
 //}
 
 
-
-
-
 // TODO: 自动生成
-#include "soci.h"
-#include "soci-mysql.h"
+//#include "soci.h"
+//#include "soci-mysql.h"
+//
+//namespace soci {
+//
+//    template<>
+//    struct type_conversion<Player> {
+//        typedef values base_type;
+//
+//        static void from_base(const values &v, indicator ind, Player &p) {
+//            p.id = v.get<uint32_t>("id");
+//            p.name = v.get<std::string>("name");
+//            p.age = v.get<uint8_t>("age");
+//        }
+//
+//        static void to_base(const Player &p, values &v, indicator &ind) {
+//            v.set("id", p.id);
+//            v.set("name", p.name);
+//            v.set("age", p.age);
+//            ind = i_ok;
+//        }
+//    };
+//}
 
-namespace soci {
-
-    template<>
-    struct type_conversion<Player> {
-        typedef values base_type;
-
-        static void from_base(const values &v, indicator ind, Player &p) {
-            p.id = v.get<uint32_t>("id");
-            p.name = v.get<std::string>("name");
-            p.age = v.get<uint8_t>("age");
-        }
-
-        static void to_base(const Player &p, values &v, indicator &ind) {
-            v.set("id", p.id);
-            v.set("name", p.name);
-            v.set("age", p.age);
-            ind = i_ok;
-        }
-    };
-}
-
-
-#include "tinyorm_mysql.h"
-
-
-void test_mysql() {
-    MySqlConnectionPool::instance()->setServerAddress("mysql://david:123456@127.0.0.1/tinyworld?maxconn=5");
-    MySqlConnectionPool::instance()->createAll();
-    MySqlConnectionPool::instance()->setGrabWaitTime(0);
-
-    TinyORM db;
-    db.updateTables();
-//    db.dropTable("PLAYER");
-//    db.createTable("PLAYER");
-//    db.updateTable("PLAYER");
-
-    {
-        mysqlpp::Query query(NULL);
-        db.makeSelectQuery(query, Player());
-        std::cout << "SQL: " << query.str() << std::endl;
-    }
-
-    return;
-    for (uint32_t i = 0; i < 10; ++i) {
-        LOG_DEBUG(__FUNCTION__, "..........");
-
-        Player p;
-        p.id = i + 10000;
-        p.age = 0;
-        p.name = "";
-//        p.age = i;
-        db.select(p);
-
-        p.dump();
-
-        db.insert(p);
-//        db.test();
-
-//        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    }
-}
-
-void test_soci() {
-
-}
 
 void test_create() {
     TinyORM db;
@@ -318,6 +273,93 @@ void test_selectDB() {
     }
 }
 
+void test_load() {
+    TinyORM db;
+    TinyORM::Records<Player> players;
+    db.loadFromDB(players, "WHERE ID %% %d=0 ORDER BY ID DESC", 2);
+
+    for (auto p : players) {
+        p->dump();
+    }
+}
+
+void test_load2() {
+    TinyORM db;
+    db.loadFromDB<Player>([](std::shared_ptr<Player> p){
+        p->dump();
+    }, nullptr);
+}
+
+void test_load3() {
+    TinyORM db;
+
+    struct PlayerCompare {
+        bool operator () (const std::shared_ptr<Player>& lhs, const std::shared_ptr<Player>& rhs) const {
+            return lhs->id > rhs->id;
+        }
+    };
+
+//    using PlayerSet = std::set<std::shared_ptr<Player>, PlayerCompare>;
+    using PlayerSet = std::set<std::shared_ptr<Player>>;
+
+    PlayerSet players;
+    db.loadFromDB<Player, PlayerSet>(players, nullptr);
+
+    for (auto it = players.begin(); it != players.end(); ++it) {
+        (*it)->dump();
+    }
+}
+
+
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+
+namespace tiny {
+    using boost::multi_index_container;
+    using namespace boost::multi_index;
+
+    struct by_id {};
+    struct by_name {};
+
+    using PlayerSet = boost::multi_index_container<
+            Player,
+            indexed_by<
+                    // sort by employee::operator<
+                    ordered_unique<tag<by_id>, member<Player, uint32_t , &Player::id> >,
+                    // sort by less<string> on name
+                    ordered_non_unique<tag<by_name>, member<Player, std::string, &Player::name> >
+                    >
+            >;
+}
+
+void test_load4() {
+    TinyORM db;
+
+    tiny::PlayerSet players;
+    db.loadFromDB2MultiIndexSet<Player, tiny::PlayerSet>(players, nullptr);
+
+    auto& players_by_id   = players.get<tiny::by_id>();
+    auto& players_by_name = players.get<tiny::by_name>();
+
+    auto it = players_by_id.find(5);
+    if (it != players_by_id.end()) {
+        it->dump();
+    }
+
+    for (auto it = players_by_name.begin(); it != players_by_name.end(); ++ it) {
+        it->dump();
+    }
+
+    std::cout << players_by_name.count("david") << std::endl;
+}
+
+
+void test_delete() {
+    TinyORM db;
+    db.deleteFromDB<Player>("WHERE ID %% %d=0 ORDER BY ID DESC", 2);
+}
 
 int main(int argc, const char *argv[]) {
     if (argc < 2) {
@@ -349,10 +391,16 @@ int main(int argc, const char *argv[]) {
         test_deleteDB();
     else if ("selectDB" == op)
         test_selectDB();
-//    else if ("loadFromDB" == op)
-//        test_loadFromDB();
-//    else if ("deleteFromDB" == op)
-//        test_deleteFromDB();
+    else if ("load" == op)
+        test_load();
+    else if ("load2" == op)
+        test_load2();
+    else if ("load3" == op)
+        test_load3();
+    else if ("load4" == op)
+        test_load4();
+    else if ("delete" == op)
+        test_delete();
 //    else if ("testbin" == op)
 //        test_bin();
 //    else if ("testsuper" == op)

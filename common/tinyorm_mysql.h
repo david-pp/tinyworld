@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <unordered_set>
+#include <functional>
 #include "tinyorm.h"
 #include "tinymysql.h"
 
@@ -63,31 +64,31 @@ public:
     bool del(T &obj);
 
     //
-    // 数据库批量操作
+    // 数据库批量加载
     //
     template<typename T>
-    bool loadFromDB(std::vector<T> &records, const char *clause, ...);
+    using Records = std::vector<std::shared_ptr<T>>;
 
     template<typename T>
-    bool deleteFromDB(const char *where, ...);
+    bool loadFromDB(Records<T> &records, const char *clause, ...);
 
     template<typename T, typename TSet>
-    static bool loadFromDB(TSet &records, const char *clause, ...);
+    bool loadFromDB(TSet &records, const char *clause, ...);
 
+    template<typename T, typename TMultiIndexSet>
+    bool loadFromDB2MultiIndexSet(TMultiIndexSet &records, const char *clause, ...);
 
-    void test() {
-        try {
-            mysqlpp::Query query = mysql_->query();
-            query << "show tables";
-            mysqlpp::StoreQueryResult res = query.store();
-            if (res) {
-                LOG_TRACE(__FUNCTION__, "rows:%u", res.num_rows());
-            }
-        }
-        catch (std::exception &err) {
-            LOG_ERROR(__FUNCTION__, "error:%s", err.what());
-        }
-    }
+    template<typename T>
+    bool loadFromDB(const std::function<void(std::shared_ptr<T>)> &callback, const char *clause, ...);
+
+    template<typename T>
+    bool vloadFromDB(const std::function<void(std::shared_ptr<T>)> &callback, const char *clause, va_list ap);
+
+    //
+    // 数据库批量删除
+    //
+    template<typename T>
+    bool deleteFromDB(const char *where, ...);
 
 public:
     //

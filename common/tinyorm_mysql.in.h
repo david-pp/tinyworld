@@ -295,6 +295,133 @@ bool TinyORM::del(T &obj) {
     return false;
 }
 
+template<typename T>
+bool TinyORM::vloadFromDB(const std::function<void(std::shared_ptr<T>)> &callback, const char *clause, va_list ap) {
+    auto td = TableFactory::instance().tableByType<T>();
+    if (!td) {
+        LOG_ERROR("TinyORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    char statement[1024] = "";
+    if (clause) {
+        vsnprintf(statement, sizeof(statement), clause, ap);
+    }
+
+    try {
+        mysqlpp::Query query = mysql_->query();
+        query << "SELECT " << td->sql_fieldlist();
+        query << " FROM `" << td->table << "` ";
+        query << statement;
+
+        LOG_TRACE("TinyORM", "%s", query.str().c_str());
+        mysqlpp::StoreQueryResult res = query.store();
+        if (res) {
+            for (size_t i = 0; i < res.num_rows(); ++i) {
+                std::shared_ptr<T> obj = std::make_shared<T>();
+                if (recordToObject(res[i], *obj.get(), td)) {
+                    callback(obj);
+                } else {
+                    LOG_ERROR("TinyORM", "%s: recordToObject FAILED", __PRETTY_FUNCTION__);
+                }
+            }
+        }
+    }
+    catch (std::exception &err) {
+        LOG_ERROR("TinyORM", "%s: %s", __PRETTY_FUNCTION__, err.what());
+        return false;
+    }
+
+    return false;
+}
+
+template<typename T>
+bool TinyORM::loadFromDB(const std::function<void(std::shared_ptr<T>)> &callback, const char *clause, ...) {
+    va_list ap;
+    va_start(ap, clause);
+    bool ret = vloadFromDB<T>(callback, clause, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+template<typename T>
+bool TinyORM::loadFromDB(Records<T> &records, const char *clause, ...) {
+
+    va_list ap;
+    va_start(ap, clause);
+
+    bool ret = vloadFromDB<T>([&records](std::shared_ptr<T> record) {
+        records.push_back(record);
+    }, clause, ap);
+
+    va_end(ap);
+    return ret;
+}
+
+template<typename T, typename TSet>
+bool TinyORM::loadFromDB(TSet &records, const char *clause, ...) {
+    va_list ap;
+    va_start(ap, clause);
+
+    bool ret = vloadFromDB<T>([&records](std::shared_ptr<T> record) {
+        records.insert(record);
+    }, clause, ap);
+
+    va_end(ap);
+    return ret;
+};
+
+template<typename T, typename TMultiIndexSet>
+bool TinyORM::loadFromDB2MultiIndexSet(TMultiIndexSet &records, const char *clause, ...) {
+    va_list ap;
+    va_start(ap, clause);
+
+    bool ret = vloadFromDB<T>([&records](std::shared_ptr<T> record) {
+        records.insert(*record);
+    }, clause, ap);
+
+    va_end(ap);
+    return ret;
+};
+
+
+template<typename T>
+bool TinyORM::deleteFromDB(const char *where, ...) {
+    auto td = TableFactory::instance().tableByType<T>();
+    if (!td) {
+        LOG_ERROR("TinyORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    char statement[1024] = "";
+    if (where) {
+        va_list ap;
+        va_start(ap, where);
+        vsnprintf(statement, sizeof(statement), where, ap);
+        va_end(ap);
+    }
+
+    try {
+        mysqlpp::Query query = mysql_->query();
+        query << "DELETE FROM `" << td->table << "` ";
+        query << statement;
+
+        LOG_TRACE("TinyORM", "%s", query.str().c_str());
+        mysqlpp::SimpleResult res = query.execute();
+        if (res) {
+            return true;
+        }
+    }
+    catch (std::exception &err) {
+        LOG_ERROR("TinyORM", "%s: %s", __PRETTY_FUNCTION__, err.what());
+        return false;
+    }
+
+
+    return false;
+}
+
 
 template<typename T>
 void TinyORM::makeValueList(mysqlpp::Query &query, T &obj, TableDescriptor<T> *td, const FieldDescriptorList &fdlist) {
@@ -537,7 +664,7 @@ bool TinyORM::makeSelectQuery(mysqlpp::Query &query, const T &obj, TableDescript
 
     query << "SELECT " << td->sql_fieldlist();
     query << " FROM `" << td->table << "` WHERE ";
-    makeKeyValueList(query, const_cast<T&>(obj), td, td->keys(), " AND ");
+    makeKeyValueList(query, const_cast<T &>(obj), td, td->keys(), " AND ");
 
     return true;
 }
@@ -550,7 +677,7 @@ bool TinyORM::makeInsertQuery(mysqlpp::Query &query, const T &obj, TableDescript
     query << "INSERT INTO `" << td->table
           << "`(" << td->sql_fieldlist() << ")"
           << " VALUES (";
-    makeValueList(query, const_cast<T&>(obj), td, td->fields());
+    makeValueList(query, const_cast<T &>(obj), td, td->fields());
     query << ")";
 
     return true;
@@ -565,7 +692,7 @@ bool TinyORM::makeReplaceQuery(mysqlpp::Query &query, const T &obj, TableDescrip
     query << "REPLACE INTO `" << td->table
           << "`(" << td->sql_fieldlist() << ")"
           << " VALUES (";
-    makeValueList(query, const_cast<T&>(obj), td, td->fields());
+    makeValueList(query, const_cast<T &>(obj), td, td->fields());
     query << ")";
 
     return true;
@@ -577,9 +704,9 @@ bool TinyORM::makeUpdateQuery(mysqlpp::Query &query, const T &obj, TableDescript
     if (!td) return false;
 
     query << "UPDATE `" << td->table << "` SET ";
-    makeKeyValueList(query, const_cast<T&>(obj), td, td->fields());
+    makeKeyValueList(query, const_cast<T &>(obj), td, td->fields());
     query << " WHERE ";
-    makeKeyValueList(query, const_cast<T&>(obj), td, td->keys(), " AND ");
+    makeKeyValueList(query, const_cast<T &>(obj), td, td->keys(), " AND ");
 
     return true;
 }
@@ -591,7 +718,7 @@ bool TinyORM::makeDeleteQuery(mysqlpp::Query &query, const T &obj, TableDescript
     if (!td) return false;
 
     query << "DELETE FROM `" << td->table << "` WHERE ";
-    makeKeyValueList(query, const_cast<T&>(obj), td, td->keys(), " AND ");
+    makeKeyValueList(query, const_cast<T &>(obj), td, td->keys(), " AND ");
 
     return true;
 }
