@@ -52,7 +52,10 @@ include_directories(/usr/local/include/soci
         /usr/include/mysq)
 link_directories(/usr/local/lib64)
 add_executable(test_orm test_orm.cpp)
-target_link_libraries(test_orm tinyworld soci_core soci_mysql mysqlpp )
+target_link_libraries(test_orm tinyworld mysqlpp)
+
+add_executable(test_orm2 test_orm2.cpp)
+target_link_libraries(test_orm2 tinyworld soci_core soci_mysql mysqlpp )
 
 add_executable(test_reflection test_reflection.cpp)
 

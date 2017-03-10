@@ -7,23 +7,31 @@
 #include "tinyorm.h"
 #include "tinymysql.h"
 
-class TinyORM {
+class TinyMySqlORM {
 public:
-    TinyORM(MySqlConnectionPool *pool = MySqlConnectionPool::instance()) {
+    //
+    // 构造: 支持两种方式:
+    //   1. 连接池
+    //   2. 指定连接
+    //
+    TinyMySqlORM(MySqlConnectionPool *pool = MySqlConnectionPool::instance()) {
         if (pool) {
             pool_ = pool;
             mysql_ = pool->grab();
         }
     }
 
-    TinyORM(mysqlpp::Connection *connection) {
+    TinyMySqlORM(mysqlpp::Connection *connection) {
         if (connection) {
             mysql_ = connection;
             pool_ = nullptr;
         }
     }
 
-    ~TinyORM() {
+    //
+    // 析构: 如果是用连接池初始化的则把连接放回
+    //
+    ~TinyMySqlORM() {
         if (pool_)
             pool_->putback(mysql_);
     }

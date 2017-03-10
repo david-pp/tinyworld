@@ -6,10 +6,12 @@
 #include <memory>
 #include <tinyreflection.h>
 
+#include "tinyorm.h"
 #include "tinylogger.h"
 
-#include "tinyorm.h"
 #include "tinyorm_mysql.h"
+
+#include "tinyorm_soci.h"
 
 struct PoDMem {
     uint32_t value;
@@ -45,7 +47,6 @@ struct Player {
     }
 };
 
-////////////////////////////////////////////////////////////
 
 // TODO: 生成DB操作
 struct PlayerRegister {
@@ -67,7 +68,108 @@ struct PlayerRegister {
 
 static PlayerRegister register___;
 
-////////////////////////////////////////////////////////////
+
+typedef std::unordered_map<uint32_t, Player> PlayerSet;
+
+//#include <soci.h>
+//#include <soci-mysql.h>
+//
+//template<typename T>
+//void insert(TableDescriptorBase::Ptr tdbase, T &obj) {
+//
+//    TableDescriptor<T> *td = (TableDescriptor<T> *) tdbase.get();
+//    try {
+//        soci::session sql(soci::mysql, "host=127.0.0.1 db=tinyworld user=david password='123456'");
+//
+//        std::ostringstream os;
+//        os << "INSERT INTO `" << td->table
+//           << "`(" << td->sql_fieldlist() << ")"
+//           << " VALUES (" << td->sql_fieldlist2() << ")";
+//
+//        std::cout << os.str() << std::endl;
+//
+//
+//        for (auto fd : td->fields()) {
+//
+//            if (fd->type == FieldType::UINT32)
+//                std::cout << fd->name << " : " << td->reflection.template get<uint32_t>(obj, fd->name) << std::endl;
+//            else if (fd->type == FieldType::VCHAR)
+//                std::cout << fd->name << " : " << td->reflection.template get<std::string>(obj, fd->name) << std::endl;
+//            else if (fd->type == FieldType::UINT8)
+//                std::cout << fd->name << " : " << (int) td->reflection.template get<uint8_t>(obj, fd->name)
+//                          << std::endl;
+//            else
+//                std::cout << fd->name << ": unkown" << std::endl;
+//        }
+//
+//
+//        soci::statement st(sql);
+//
+//        for (auto fd : td->fields()) {
+//
+//            if (fd->type == FieldType::UINT32)
+//                st.exchange(soci::use(td->reflection.template get<uint32_t>(obj, fd->name)));
+//            else if (fd->type == FieldType::VCHAR)
+//                st.exchange(soci::use(td->reflection.template get<std::string>(obj, fd->name)));
+//            else if (fd->type == FieldType::UINT8)
+//                st.exchange(soci::use(td->reflection.template get<uint8_t>(obj, fd->name)));
+//            else if (fd->type == FieldType::OBJECT) {
+//                std::string bin;
+//                auto prop = td->reflection.propertyByName(fd->name);
+//                if (prop)
+//                    prop->to_bin(obj, bin);
+//
+//                st.exchange(soci::use(bin));
+//
+//                std::cout << bin << std::endl;
+//            }
+//        }
+//
+//
+//        st.alloc();
+//        st.prepare(os.str());
+//        st.define_and_bind();
+//        st.execute(true);
+//
+////        sql << "insert into Player(id, name, age) values(:id, :name, :age)", soci::use(p);
+//
+//        std::cout << "--- end --" << std::endl;
+//
+//    }
+//    catch (const soci::mysql_soci_error &e) {
+//        std::cout << "MySQL Error:" << e.what() << std::endl;
+//    }
+//    catch (const std::exception &e) {
+//        std::cout << "Error:" << e.what() << std::endl;
+//    }
+//}
+
+
+// TODO: 自动生成
+//#include "soci.h"
+//#include "soci-mysql.h"
+//
+//namespace soci {
+//
+//    template<>
+//    struct type_conversion<Player> {
+//        typedef values base_type;
+//
+//        static void from_base(const values &v, indicator ind, Player &p) {
+//            p.id = v.get<uint32_t>("id");
+//            p.name = v.get<std::string>("name");
+//            p.age = v.get<uint8_t>("age");
+//        }
+//
+//        static void to_base(const Player &p, values &v, indicator &ind) {
+//            v.set("id", p.id);
+//            v.set("name", p.name);
+//            v.set("age", p.age);
+//            ind = i_ok;
+//        }
+//    };
+//}
+
 
 void test_create() {
     TinyMySqlORM db;
@@ -230,8 +332,8 @@ namespace tiny {
                     ordered_unique<tag<by_id>, member<Player, uint32_t , &Player::id> >,
                     // sort by less<string> on name
                     ordered_non_unique<tag<by_name>, member<Player, std::string, &Player::name> >
-                    >
-            >;
+            >
+    >;
 }
 
 void test_load4() {
