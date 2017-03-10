@@ -26,7 +26,7 @@ namespace tiny {
     template<typename T>
     inline std::string serialize(const T &object) {
 
-        std::cout << __PRETTY_FUNCTION__ << std::endl;
+//        std::cout << __PRETTY_FUNCTION__ << std::endl;
         std::string bin;
         TinySerializer<typename std::remove_reference<T>::type>::serialize(object, bin);
         return bin;
@@ -34,7 +34,7 @@ namespace tiny {
 
     template<typename T>
     inline bool deserialize(T &object, const std::string &bin) {
-        std::cout << __PRETTY_FUNCTION__ << std::endl;
+//        std::cout << __PRETTY_FUNCTION__ << std::endl;
         return TinySerializer<typename std::remove_reference<T>::type>::deserialize(object, bin);
     }
 }

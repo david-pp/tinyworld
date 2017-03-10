@@ -120,7 +120,7 @@ public:
 
     PropertyContainer propertyIterator() { return properties_ordered_; }
 
-    typename Property<T>::Ptr getPropertyByName(const std::string &name) {
+    typename Property<T>::Ptr propertyByName(const std::string &name) {
         auto it = properties_.find(name);
         if (it != properties_.end())
             return it->second;
@@ -129,7 +129,7 @@ public:
 
     template<typename PropType>
     PropType get(T &obj, const std::string &propname) {
-        auto prop = getPropertyByName(propname);
+        auto prop = propertyByName(propname);
         if (prop)
             return boost::any_cast<PropType>(prop->get(obj));
         return PropType();
@@ -137,7 +137,7 @@ public:
 
     template<typename PropType>
     void set(T &obj, const std::string &propname, const PropType &value) {
-        auto prop = getPropertyByName(propname);
+        auto prop = propertyByName(propname);
         if (prop) {
             boost::any v = value;
             prop->set(obj, v);

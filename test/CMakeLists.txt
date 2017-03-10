@@ -31,6 +31,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 
 #add_definitions(-DTINYLOGGER_LOG4CXX)
 
+add_definitions(-DCATCH_PLATFORM_WINDOWS)
+
 add_executable(test_logger test_logger.cpp)
 target_link_libraries(test_logger log4cxx apr-1 aprutil-1 iconv)
 

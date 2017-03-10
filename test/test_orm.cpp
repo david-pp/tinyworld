@@ -3,68 +3,11 @@
 #include <iostream>
 #include <unordered_map>
 #include <vector>
-#include <string>
-#include <initializer_list>
 #include <memory>
 #include <tinyreflection.h>
 
 #include "tinyorm.h"
 #include "tinylogger.h"
-
-////////////////////////////////////////////////////////////////
-//
-// C++结构体存储到MYSQL
-//
-////////////////////////////////////////////////////////////////
-template<typename T, typename T_DBDescriptor>
-struct Object2DB : public T {
-public:
-    using T::T;
-
-    typedef std::vector<T> Records;
-
-    Object2DB() {}
-
-    Object2DB(const T &object) : T(object) {}
-
-    //
-    // 创建、删除、自动更新表结构
-    //
-    static bool createTable();
-
-    static bool dropTable();
-
-    static bool updateTable();
-
-    //
-    // 数据库批量操作
-    //
-    static bool loadFromDB(Records &records, const char *clause, ...);
-
-    static bool deleteFromDB(const char *where, ...);
-
-    template<typename T_Set>
-    static bool loadFromDB(T_Set &records, const char *clause, ...);
-
-protected:
-    // 数据库描述
-    static T_DBDescriptor descriptor_;
-
-public:
-    //
-    // 该对象的数据库操作
-    //
-    bool selectDB();
-
-    bool insertDB();
-
-    bool replaceDB();
-
-    bool updateDB();
-
-    bool deleteDB();
-};
-
 
 struct PoDMem {
     uint32_t value;
@@ -94,6 +37,10 @@ struct Player {
 
     PoDMem obj1;
     NonPoDMem obj2;
+
+    void dump() {
+        std::cout << "Player:" << id << "," << name << "," << (int) age << std::endl;
+    }
 };
 
 
@@ -118,7 +65,6 @@ struct PlayerRegister {
 static PlayerRegister register___;
 
 
-
 typedef std::unordered_map<uint32_t, Player> PlayerSet;
 
 //#include <soci.h>
@@ -139,7 +85,7 @@ typedef std::unordered_map<uint32_t, Player> PlayerSet;
 //        std::cout << os.str() << std::endl;
 //
 //
-//        for (auto fd : td->fieldIterators()) {
+//        for (auto fd : td->fields()) {
 //
 //            if (fd->type == FieldType::UINT32)
 //                std::cout << fd->name << " : " << td->reflection.template get<uint32_t>(obj, fd->name) << std::endl;
@@ -155,7 +101,7 @@ typedef std::unordered_map<uint32_t, Player> PlayerSet;
 //
 //        soci::statement st(sql);
 //
-//        for (auto fd : td->fieldIterators()) {
+//        for (auto fd : td->fields()) {
 //
 //            if (fd->type == FieldType::UINT32)
 //                st.exchange(soci::use(td->reflection.template get<uint32_t>(obj, fd->name)));
@@ -165,7 +111,7 @@ typedef std::unordered_map<uint32_t, Player> PlayerSet;
 //                st.exchange(soci::use(td->reflection.template get<uint8_t>(obj, fd->name)));
 //            else if (fd->type == FieldType::OBJECT) {
 //                std::string bin;
-//                auto prop = td->reflection.getPropertyByName(fd->name);
+//                auto prop = td->reflection.propertyByName(fd->name);
 //                if (prop)
 //                    prop->to_bin(obj, bin);
 //
@@ -227,7 +173,6 @@ namespace soci {
 #include "tinyorm_mysql.h"
 
 
-
 void test_mysql() {
     MySqlConnectionPool::instance()->setServerAddress("mysql://david:123456@127.0.0.1/tinyworld?maxconn=5");
     MySqlConnectionPool::instance()->createAll();
@@ -239,14 +184,24 @@ void test_mysql() {
 //    db.createTable("PLAYER");
 //    db.updateTable("PLAYER");
 
-    return;
+    {
+        mysqlpp::Query query(NULL);
+        db.makeSelectQuery(query, Player());
+        std::cout << "SQL: " << query.str() << std::endl;
+    }
 
-    for (uint32_t i = 0; i < 10; ++ i) {
+    return;
+    for (uint32_t i = 0; i < 10; ++i) {
         LOG_DEBUG(__FUNCTION__, "..........");
 
         Player p;
         p.id = i + 10000;
-        p.age = i;
+        p.age = 0;
+        p.name = "";
+//        p.age = i;
+        db.select(p);
+
+        p.dump();
 
         db.insert(p);
 //        db.test();
@@ -259,25 +214,150 @@ void test_soci() {
 
 }
 
-int main() {
-    auto td = TableFactory::instance().getTableDescriptor("PLAYER");
-    std::cout << td->sql_create() << std::endl;
-    std::cout << td->sql_drop() << std::endl;
-    std::cout << td->sql_addfield("NAME") << std::endl;
-    test_mysql();
-    return 0;
-
-
-//
-//    for (uint32_t i = 0; i < 10; ++i) {
-//        Player p;
-//        p.id = i + 10000;
-//        p.age = i;
-////        insert(td, p);
-//        insert_mysqlpp(td, p);
-//
-//        std::string bin;
-//    }
-//
-//    std::cout << std::is_trivial<Player>::value << std::endl;
+void test_create() {
+    TinyORM db;
+    db.createTable("PLAYER");
 }
+
+void test_drop() {
+    TinyORM db;
+    db.dropTable("PLAYER");
+}
+
+void test_update() {
+    TinyORM db;
+    db.updateTables();
+}
+
+void test_sql() {
+    TinyORM db;
+
+    {
+        mysqlpp::Query query(NULL);
+        db.makeSelectQuery(query, Player());
+        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+    }
+
+    {
+        mysqlpp::Query query(NULL);
+        db.makeInsertQuery(query, Player());
+        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+    }
+
+    {
+        mysqlpp::Query query(NULL);
+        db.makeReplaceQuery(query, Player());
+        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+    }
+
+    {
+        mysqlpp::Query query(NULL);
+        db.makeUpdateQuery(query, Player());
+        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+    }
+
+    {
+        mysqlpp::Query query(NULL);
+        db.makeDeleteQuery(query, Player());
+        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+    }
+}
+
+void test_insertDB() {
+
+    TinyORM db;
+    for (uint32_t i = 0; i < 10; ++i) {
+        Player p;
+        p.id = i;
+        p.age = 30;
+        p.name = "david-insert-" + std::to_string(i);
+        db.insert(p);
+    }
+};
+
+void test_replaceDB() {
+    TinyORM db;
+    for (uint32_t i = 0; i < 10; ++i) {
+        Player p;
+        p.id = i;
+        p.age = 30;
+        p.name = "david-replace-" + std::to_string(i);
+        db.replace(p);
+    }
+}
+
+void test_updateDB() {
+    TinyORM db;
+    for (uint32_t i = 0; i < 10; ++i) {
+        Player p;
+        p.id = i;
+        p.age = 30;
+        p.name = "david-update-" + std::to_string(i);
+        db.update(p);
+    }
+}
+
+void test_deleteDB() {
+    TinyORM db;
+    for (uint32_t i = 0; i < 10; ++i) {
+        Player p;
+        p.id = i;
+        db.del(p);
+    }
+}
+
+void test_selectDB() {
+    TinyORM db;
+    for (uint32_t i = 0; i < 10; ++i) {
+        Player p;
+        p.id = i;
+        p.age = 0;
+        p.name = "";
+        if (db.select(p))
+            p.dump();
+    }
+}
+
+
+int main(int argc, const char *argv[]) {
+    if (argc < 2) {
+        std::cout << "Usage:" << argv[0]
+                  << " create | drop | update" << std::endl;
+        return 1;
+    }
+
+    MySqlConnectionPool::instance()->setServerAddress("mysql://david:123456@127.0.0.1/tinyworld?maxconn=5");
+    MySqlConnectionPool::instance()->createAll();
+    MySqlConnectionPool::instance()->setGrabWaitTime(0);
+
+    std::string op = argv[1];
+    if ("sql" == op)
+        test_sql();
+    else if ("create" == op)
+        test_create();
+    else if ("drop" == op)
+        test_drop();
+    else if ("update" == op)
+        test_update();
+    else if ("insertDB" == op)
+        test_insertDB();
+    else if ("replaceDB" == op)
+        test_replaceDB();
+    else if ("updateDB" == op)
+        test_updateDB();
+    else if ("deleteDB" == op)
+        test_deleteDB();
+    else if ("selectDB" == op)
+        test_selectDB();
+//    else if ("loadFromDB" == op)
+//        test_loadFromDB();
+//    else if ("deleteFromDB" == op)
+//        test_deleteFromDB();
+//    else if ("testbin" == op)
+//        test_bin();
+//    else if ("testsuper" == op)
+//        test_super();
+
+    return 0;
+}
+

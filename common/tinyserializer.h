@@ -7,7 +7,7 @@ template<typename T>
 struct TinySerializerImpl<T, true> {
     static bool serialize(const T &object, std::string &bin) {
 
-        std::cout << __PRETTY_FUNCTION__ << std::endl;
+//        std::cout << __PRETTY_FUNCTION__ << std::endl;
         bin = "pod";
         return true;
     }
@@ -20,7 +20,7 @@ struct TinySerializerImpl<T, true> {
 template<typename T>
 struct TinySerializerImpl<T, false> {
     static bool serialize(const T &object, std::string &bin) {
-        std::cout << __PRETTY_FUNCTION__ << std::endl;
+//        std::cout << __PRETTY_FUNCTION__ << std::endl;
         auto reflection = StructFactory::instance().structByType<T>();
         if (reflection) {
             bin = "(" + reflection->name() + ":";

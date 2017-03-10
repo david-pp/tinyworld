@@ -38,7 +38,7 @@ enum class FieldType : uint8_t {
 
 class FieldDescriptor {
 public:
-    typedef std::shared_ptr<FieldDescriptor> Ptr;
+    using Ptr = std::shared_ptr<FieldDescriptor>;
 
     FieldDescriptor(const std::string &_name,
                     FieldType _type,
@@ -62,9 +62,11 @@ public:
     uint32_t size;
 };
 
+using FieldDescriptorList = std::vector<FieldDescriptor::Ptr>;
+
 class TableDescriptorBase {
 public:
-    typedef std::shared_ptr<TableDescriptorBase> Ptr;
+    using Ptr = std::shared_ptr<TableDescriptorBase>;
 
     std::string sql_create();
 
@@ -73,6 +75,7 @@ public:
     std::string sql_addfield(const std::string &field);
 
     std::string sql_fieldlist();
+
     std::string sql_fieldlist2();
 
 public:
@@ -91,7 +94,9 @@ public:
 
     FieldDescriptor::Ptr getFieldDescriptor(const std::string &name);
 
-    std::vector<FieldDescriptor::Ptr> &fieldIterators() { return fields_ordered_; }
+    const FieldDescriptorList &fields() { return fields_ordered_; }
+
+    const FieldDescriptorList &keys() { return keys_; }
 
 public:
     TableDescriptorBase(const std::string name)
@@ -100,14 +105,13 @@ public:
     // 表名
     std::string table;
     // 主键字段
-    std::vector<FieldDescriptor::Ptr> keys_;
+    FieldDescriptorList keys_;
     // 索引字段
-    std::vector<FieldDescriptor::Ptr> indexs_;
+    FieldDescriptorList indexs_;
     // 字段描述
-    std::vector<FieldDescriptor::Ptr> fields_ordered_;
+    FieldDescriptorList fields_ordered_;
     std::unordered_map<std::string, FieldDescriptor::Ptr> fields_;
 };
-
 
 
 template<typename T>
@@ -133,6 +137,7 @@ public:
 class TableFactory {
 public:
     typedef std::unordered_map<std::string, TableDescriptorBase::Ptr> Tables;
+
     static TableFactory &instance() {
         static TableFactory factory_;
         return factory_;
@@ -142,21 +147,31 @@ public:
     TableDescriptor<T> &table(const std::string &name) {
         TableDescriptor<T> *td = new TableDescriptor<T>(name);
         TableDescriptorBase::Ptr ptr(td);
-        tables_[name] = ptr;
+        tables_byname_[name] = ptr;
+        tables_bytype_[typeid(T).name()] = ptr;
         return *td;
     }
 
-    TableDescriptorBase::Ptr getTableDescriptor(const std::string &name) {
-        auto it = tables_.find(name);
-        if (it != tables_.end())
+    TableDescriptorBase::Ptr tableByName(const std::string &name) {
+        auto it = tables_byname_.find(name);
+        if (it != tables_byname_.end())
             return it->second;
         return nullptr;
     }
 
-    Tables& tables() { return tables_; }
+    template<typename T>
+    TableDescriptor<T> *tableByType() {
+        auto it = tables_bytype_.find(typeid(T).name());
+        if (it != tables_bytype_.end())
+            return static_cast<TableDescriptor<T> *>(it->second.get());
+        return nullptr;
+    }
+
+    Tables &tables() { return tables_byname_; }
 
 private:
-    Tables tables_;
+    Tables tables_byname_;
+    Tables tables_bytype_;
 };
 
 #endif //TINYWORLD_TINYORM_H

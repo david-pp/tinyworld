@@ -30,7 +30,8 @@ public:
     //
     // 更新所有表格的结构
     //
-    bool showTables(std::unordered_set<std::string>& tables);
+    bool showTables(std::unordered_set<std::string> &tables);
+
     bool updateTables();
 
     //
@@ -47,7 +48,7 @@ public:
     // 针对某个对象的数据库操作
     //
     template<typename T>
-    bool select(T &value);
+    bool select(T &obj);
 
     template<typename T>
     bool insert(T &obj);
@@ -64,10 +65,10 @@ public:
     //
     // 数据库批量操作
     //
-    template <typename T>
+    template<typename T>
     bool loadFromDB(std::vector<T> &records, const char *clause, ...);
 
-    template <typename T>
+    template<typename T>
     bool deleteFromDB(const char *where, ...);
 
     template<typename T, typename TSet>
@@ -88,8 +89,50 @@ public:
         }
     }
 
+public:
+    //
+    // Generate SQL
+    //
+    template<typename T>
+    bool makeSelectQuery(mysqlpp::Query &query, const T &obj, TableDescriptor<T> *td = nullptr);
+
+    template<typename T>
+    bool makeInsertQuery(mysqlpp::Query &query, const T &obj, TableDescriptor<T> *td = nullptr);
+
+    template<typename T>
+    bool makeReplaceQuery(mysqlpp::Query &query, const T &obj, TableDescriptor<T> *td = nullptr);
+
+    template<typename T>
+    bool makeUpdateQuery(mysqlpp::Query &query, const T &obj, TableDescriptor<T> *td = nullptr);
+
+    template<typename T>
+    bool makeDeleteQuery(mysqlpp::Query &query, const T &obj, TableDescriptor<T> *td = nullptr);
+
+
 protected:
     bool updateExistTable(TableDescriptorBase::Ptr td);
+
+
+    //
+    // value1,value2,...,valueN
+    //
+    template<typename T>
+    void makeValueList(mysqlpp::Query &query, T &obj, TableDescriptor<T> *td, const FieldDescriptorList &fdlist);
+
+    //
+    // key1=value1,key2=valule2,...,keyN=valueN
+    //
+    template<typename T>
+    void makeKeyValueList(mysqlpp::Query &query, T &obj, TableDescriptor<T> *td, const FieldDescriptorList &fdlist,
+                          const std::string &seperator = ",");
+
+
+    template<typename T>
+    bool fieldToQuery(mysqlpp::Query &query, T &obj, TableDescriptor<T> *td, FieldDescriptor::Ptr fd);
+
+    template<typename T>
+    bool recordToObject(mysqlpp::Row &record, T &obj, TableDescriptor<T> *td);
+
 
 private:
     mysqlpp::Connection *mysql_ = nullptr;
