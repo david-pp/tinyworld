@@ -14,13 +14,24 @@ public:
     //   1. 连接池
     //   2. 指定连接
     //
-    TinySociORM() {
+    TinySociORM(SOCIPool *pool = &SOCIPool::instance())
+            : pool_(pool) {
+        if (pool_ && pool_->pool()) {
+            session_ = new soci::session(*pool->pool());
+        }
+    }
+
+    TinySociORM(soci::session *session)
+            : session_(session) {
+        pool_ = nullptr;
     }
 
     //
     // 析构: 如果是用连接池初始化的则把连接放回
     //
     ~TinySociORM() {
+        if (pool_ && session_)
+            delete session_;
     }
 
     //
@@ -84,6 +95,31 @@ public:
     //
     template<typename T>
     bool deleteFromDB(const char *where, ...);
+
+protected:
+    bool updateExistTable(TableDescriptorBase::Ptr td);
+
+    struct UseResultBase {};
+
+    template <typename UseT>
+    struct UseResult : public UseResultBase {
+        UseResult() {}
+        UseResult(const UseT& v) : value(v) {}
+        virtual ~UseResult() {}
+        UseT value;
+    };
+
+    template<typename T>
+    UseResultBase* fieldToStatement(soci::statement &st, T &obj, TableDescriptor<T> *td, FieldDescriptor::Ptr fd);
+
+    template<typename T>
+    bool recordToObject(soci::row &record, T &obj, TableDescriptor<T> *td);
+
+private:
+    soci::session &session() { return *session_; }
+
+    SOCIPool *pool_ = nullptr;
+    soci::session *session_ = nullptr;
 };
 
 
