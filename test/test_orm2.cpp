@@ -9,8 +9,6 @@
 #include "tinyorm.h"
 #include "tinylogger.h"
 
-#include "tinyorm_mysql.h"
-
 #include "tinyorm_soci.h"
 
 struct PoDMem {
@@ -87,37 +85,37 @@ void test_update() {
 }
 
 void test_sql() {
-    TinyMySqlORM db;
-
-    {
-        mysqlpp::Query query(NULL);
-        db.makeSelectQuery(query, Player());
-        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
-    }
-
-    {
-        mysqlpp::Query query(NULL);
-        db.makeInsertQuery(query, Player());
-        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
-    }
-
-    {
-        mysqlpp::Query query(NULL);
-        db.makeReplaceQuery(query, Player());
-        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
-    }
-
-    {
-        mysqlpp::Query query(NULL);
-        db.makeUpdateQuery(query, Player());
-        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
-    }
-
-    {
-        mysqlpp::Query query(NULL);
-        db.makeDeleteQuery(query, Player());
-        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
-    }
+//    TinyMySqlORM db;
+//
+//    {
+//        mysqlpp::Query query(NULL);
+//        db.makeSelectQuery(query, Player());
+//        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+//    }
+//
+//    {
+//        mysqlpp::Query query(NULL);
+//        db.makeInsertQuery(query, Player());
+//        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+//    }
+//
+//    {
+//        mysqlpp::Query query(NULL);
+//        db.makeReplaceQuery(query, Player());
+//        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+//    }
+//
+//    {
+//        mysqlpp::Query query(NULL);
+//        db.makeUpdateQuery(query, Player());
+//        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+//    }
+//
+//    {
+//        mysqlpp::Query query(NULL);
+//        db.makeDeleteQuery(query, Player());
+//        LOG_INFO(__FUNCTION__, "%s", query.str().c_str());
+//    }
 }
 
 void test_insertDB() {
@@ -176,8 +174,8 @@ void test_selectDB() {
 }
 
 void test_load() {
-    TinyMySqlORM db;
-    TinyMySqlORM::Records<Player> players;
+    TinySociORM db;
+    TinySociORM::Records<Player> players;
     db.loadFromDB(players, "WHERE ID %% %d=0 ORDER BY ID DESC", 2);
 
     for (auto p : players) {
@@ -186,14 +184,14 @@ void test_load() {
 }
 
 void test_load2() {
-    TinyMySqlORM db;
+    TinySociORM db;
     db.loadFromDB<Player>([](std::shared_ptr<Player> p){
         p->dump();
     }, nullptr);
 }
 
 void test_load3() {
-    TinyMySqlORM db;
+    TinySociORM db;
 
     struct PlayerCompare {
         bool operator () (const std::shared_ptr<Player>& lhs, const std::shared_ptr<Player>& rhs) const {
@@ -237,7 +235,7 @@ namespace tiny {
 }
 
 void test_load4() {
-    TinyMySqlORM db;
+    TinySociORM db;
 
     tiny::PlayerSet players;
     db.loadFromDB2MultiIndexSet<Player, tiny::PlayerSet>(players, nullptr);
@@ -259,8 +257,8 @@ void test_load4() {
 
 
 void test_delete() {
-    TinyMySqlORM db;
-    db.deleteFromDB<Player>("WHERE ID %% %d=0 ORDER BY ID DESC", 2);
+    TinySociORM db;
+    db.deleteFromDB<Player>("WHERE ID %% %d=0", 2);
 }
 
 int main(int argc, const char *argv[]) {

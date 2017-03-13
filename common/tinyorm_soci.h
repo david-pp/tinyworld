@@ -2,6 +2,7 @@
 #define TINYWORLD_TINYORM_SOCI_H
 
 #include <vector>
+#include <set>
 #include <unordered_set>
 #include <functional>
 #include "tinyorm.h"

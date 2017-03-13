@@ -173,12 +173,12 @@ bool TinySociORM::select(T &obj) {
 
     try {
         std::ostringstream os;
-        os <<  "select " << td->sql_fieldlist() << " from `" << td->table << "` WHERE";
+        os << "select " << td->sql_fieldlist() << " from `" << td->table << "` WHERE";
 
         size_t i = 0;
         for (auto fd : td->keys()) {
             os << "`" << fd->name << "`=:" << fd->name;
-            i ++;
+            i++;
 
             if (i != td->keys().size())
                 os << " AND ";
@@ -204,9 +204,12 @@ bool TinySociORM::select(T &obj) {
         st.alloc();
         st.prepare(os.str());
         st.define_and_bind();
-        st.execute(true);
+        st.execute(false);
 
-        return recordToObject(row, obj, td);
+        while (st.fetch()) {
+            return recordToObject(row, obj, td);
+        }
+        return false;
     }
     catch (std::exception &err) {
         LOG_ERROR("TinySociORM", "%s: %s", __PRETTY_FUNCTION__, err.what());
@@ -272,7 +275,7 @@ bool TinySociORM::update(T &obj) {
         size_t i = 0;
         for (auto fd : td->fields()) {
             os << "`" << fd->name << "`=:" << fd->name;
-            i ++;
+            i++;
 
             if (i != td->fields().size())
                 os << ",";
@@ -283,7 +286,7 @@ bool TinySociORM::update(T &obj) {
         i = 0;
         for (auto fd : td->keys()) {
             os << "`" << fd->name << "`=:" << fd->name;
-            i ++;
+            i++;
 
             if (i != td->keys().size())
                 os << " AND ";
@@ -338,7 +341,7 @@ bool TinySociORM::del(T &obj) {
         size_t i = 0;
         for (auto fd : td->keys()) {
             os << "`" << fd->name << "`=:" << fd->name;
-            i ++;
+            i++;
 
             if (i != td->keys().size())
                 os << " AND ";
@@ -367,6 +370,119 @@ bool TinySociORM::del(T &obj) {
         LOG_ERROR("TinySociORM", "%s: %s", __PRETTY_FUNCTION__, err.what());
         return false;
     }
+    return false;
+}
+
+
+template<typename T>
+bool TinySociORM::vloadFromDB(const std::function<void(std::shared_ptr<T>)> &callback, const char *clause, va_list ap) {
+    auto td = TableFactory::instance().tableByType<T>();
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    char statement[1024] = "";
+    if (clause) {
+        vsnprintf(statement, sizeof(statement), clause, ap);
+    }
+
+    try {
+        soci::rowset<soci::row> records = (session_->prepare << "SELECT " << td->sql_fieldlist() << " FROM `"
+                                                             << td->table << "` " << statement);
+
+        for (auto it = records.begin(); it != records.end(); ++it) {
+            std::shared_ptr<T> obj = std::make_shared<T>();
+            if (recordToObject(*it, *obj.get(), td)) {
+                callback(obj);
+            } else {
+                LOG_ERROR("TinySociORM", "%s: recordToObject FAILED", __PRETTY_FUNCTION__);
+            }
+        }
+    }
+    catch (std::exception &err) {
+        LOG_ERROR("TinySociORM", "%s: %s", __PRETTY_FUNCTION__, err.what());
+        return false;
+    }
+
+    return false;
+}
+
+template<typename T>
+bool TinySociORM::loadFromDB(const std::function<void(std::shared_ptr<T>)> &callback, const char *clause, ...) {
+    va_list ap;
+    va_start(ap, clause);
+    bool ret = vloadFromDB<T>(callback, clause, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+template<typename T>
+bool TinySociORM::loadFromDB(Records <T> &records, const char *clause, ...) {
+
+    va_list ap;
+    va_start(ap, clause);
+
+    bool ret = vloadFromDB<T>([&records](std::shared_ptr<T> record) {
+        records.push_back(record);
+    }, clause, ap);
+
+    va_end(ap);
+    return ret;
+}
+
+template<typename T, typename TSet>
+bool TinySociORM::loadFromDB(TSet &records, const char *clause, ...) {
+    va_list ap;
+    va_start(ap, clause);
+
+    bool ret = vloadFromDB<T>([&records](std::shared_ptr<T> record) {
+        records.insert(record);
+    }, clause, ap);
+
+    va_end(ap);
+    return ret;
+};
+
+template<typename T, typename TMultiIndexSet>
+bool TinySociORM::loadFromDB2MultiIndexSet(TMultiIndexSet &records, const char *clause, ...) {
+    va_list ap;
+    va_start(ap, clause);
+
+    bool ret = vloadFromDB<T>([&records](std::shared_ptr<T> record) {
+        records.insert(*record);
+    }, clause, ap);
+
+    va_end(ap);
+    return ret;
+};
+
+template<typename T>
+bool TinySociORM::deleteFromDB(const char *where, ...) {
+    auto td = TableFactory::instance().tableByType<T>();
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    char statement[1024] = "";
+    if (where) {
+        va_list ap;
+        va_start(ap, where);
+        vsnprintf(statement, sizeof(statement), where, ap);
+        va_end(ap);
+    }
+
+    try {
+        session() << "DELETE FROM `" << td->table << "` " << statement;
+        return true;
+    }
+    catch (std::exception &err) {
+        LOG_ERROR("TinyMySqlORM", "%s: %s", __PRETTY_FUNCTION__, err.what());
+        return false;
+    }
+
     return false;
 }
 
@@ -505,11 +621,13 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
                 break;
             }
             case FieldType::INT32  : {
-                td->reflection.template set<int32_t>(obj, fd->name, record.get<unsigned int>(i));
+                td->reflection.template set<int32_t>(obj, fd->name, record.get < unsigned
+                int > (i));
                 break;
             }
             case FieldType::INT64  : {
-                td->reflection.template set<int64_t>(obj, fd->name, record.get<long long>(i));
+                td->reflection.template set<int64_t>(obj, fd->name, record.get < long
+                long > (i));
                 break;
             }
             case FieldType::UINT8   : {
@@ -521,11 +639,13 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
                 break;
             }
             case FieldType::UINT32  : {
-                td->reflection.template set<uint32_t>(obj, fd->name, record.get<unsigned int>(i));
+                td->reflection.template set<uint32_t>(obj, fd->name, record.get < unsigned
+                int > (i));
                 break;
             }
             case FieldType::UINT64  : {
-                td->reflection.template set<uint64_t>(obj, fd->name, record.get<long long>(i));
+                td->reflection.template set<uint64_t>(obj, fd->name, record.get < long
+                long > (i));
                 break;
             }
 

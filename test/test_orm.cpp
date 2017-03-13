@@ -258,7 +258,7 @@ void test_load4() {
 
 void test_delete() {
     TinyMySqlORM db;
-    db.deleteFromDB<Player>("WHERE ID %% %d=0 ORDER BY ID DESC", 2);
+    db.deleteFromDB<Player>("WHERE ID %% %d=0", 2);
 }
 
 int main(int argc, const char *argv[]) {
