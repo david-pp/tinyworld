@@ -174,4 +174,107 @@ private:
     Tables tables_bytype_;
 };
 
+
+template<typename T, typename ORM>
+struct Object2DB_T : public T {
+public:
+    using Records = std::vector<std::shared_ptr<T>>;
+    using ORMPoolType = typename ORM::PoolType;
+    using ORMConnectionType = typename ORM::ConnectionType;
+
+    Object2DB_T() {}
+
+    Object2DB_T(const T &object) : T(object) {}
+
+    //
+    // 创建、删除、自动更新表结构
+    //
+    static bool createTable(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template createTableByType<T>();
+    }
+
+    static bool createTable(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template createTableByType<T>();
+    }
+
+    static bool dropTable(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template dropTableByType<T>();
+    }
+
+    static bool dropTable(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template dropTableByType<T>();
+    }
+
+
+    static bool updateTable(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template updateTableByType<T>();
+    }
+
+    static bool updateTable(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template updateTableByType<T>();
+    }
+
+public:
+    //
+    // 该对象的数据库操作
+    //
+    bool selectDB(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template select<T>(*this);
+    }
+
+    bool selectDB(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template select<T>(*this);
+    }
+
+
+    bool insertDB(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template insert<T>(*this);
+    }
+
+    bool insertDB(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template insert<T>(*this);
+    }
+
+    bool replaceDB(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template replace<T>(*this);
+    }
+
+    bool replaceDB(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template replace<T>(*this);
+    }
+
+    bool updateDB(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template update<T>(*this);
+    }
+
+    bool updateDB(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template update<T>(*this);
+    }
+
+    bool deleteDB(ORMPoolType *pool = &ORMPoolType::instance()) {
+        ORM orm(pool);
+        return orm.template del<T>(*this);
+    }
+
+    bool deleteDB(ORMConnectionType *connect) {
+        ORM orm(connect);
+        return orm.template del<T>(*this);
+    }
+};
+
+
 #endif //TINYWORLD_TINYORM_H

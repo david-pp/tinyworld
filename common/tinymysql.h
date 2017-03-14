@@ -31,9 +31,9 @@ public:
 
     virtual ~MySqlConnectionPool() {}
 
-    static MySqlConnectionPool *instance() {
+    static MySqlConnectionPool& instance() {
         static MySqlConnectionPool mypool;
-        return &mypool;
+        return mypool;
     }
 
 

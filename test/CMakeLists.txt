@@ -46,16 +46,26 @@ target_link_libraries(test_zmq tinyworld protobuf zmq)
 add_executable(test_rpc test_rpc.cpp ${PB_CPPOUTS})
 target_link_libraries(test_rpc tinyworld protobuf zmq)
 
+#
+#  SOCI ? Mysql++ ?
+#
+set(USE_ORM_SOCI 0)
+set(ORM_LIBS "")
+if (USE_ORM_SOCI)
+    include_directories(/usr/local/include/soci
+            /usr/local/include/soci/mysql
+            /usr/include/mysq)
+    link_directories(/usr/local/lib64)
 
-include_directories(/usr/local/include/soci
-        /usr/local/include/soci/mysql
-        /usr/include/mysq)
-link_directories(/usr/local/lib64)
+    set(ORM_LIBS soci_core soci_mysql)
+else ()
+    add_definitions(-DUSE_ORM_MYSQLPP)
+    set(ORM_LIBS mysqlpp)
+endif ()
+
 add_executable(test_orm test_orm.cpp)
-target_link_libraries(test_orm tinyworld mysqlpp)
+target_link_libraries(test_orm tinyworld ${ORM_LIBS})
 
-add_executable(test_orm2 test_orm2.cpp)
-target_link_libraries(test_orm2 tinyworld soci_core soci_mysql mysqlpp )
 
 add_executable(test_reflection test_reflection.cpp)
 

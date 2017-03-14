@@ -321,7 +321,7 @@ protected:
 template<typename ConnType, typename PoolType>
 class ScopedConnection {
 public:
-    explicit ScopedConnection(PoolType *pool = PoolType::instance())
+    explicit ScopedConnection(PoolType *pool = &PoolType::instance())
             : pool_(pool), connection_(pool ? (ConnType *) pool->acquire() : NULL) {}
 
     ~ScopedConnection() {

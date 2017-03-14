@@ -10,6 +10,9 @@
 
 class TinySociORM {
 public:
+    typedef SOCIPool      PoolType;
+    typedef soci::session ConnectionType;
+
     //
     // 构造: 支持两种方式:
     //   1. 连接池
@@ -45,11 +48,20 @@ public:
     //
     // 创建、删除、自动更新表结构
     //
-    bool createTable(const std::string &table);
+    template<typename T>
+    bool createTableByType();
 
-    bool dropTable(const std::string &table);
+    bool createTableByName(const std::string &name);
 
-    bool updateTable(const std::string &table);
+    template<typename T>
+    bool dropTableByType();
+
+    bool dropTableByName(const std::string &name);
+
+    template<typename T>
+    bool updateTableByType();
+
+    bool updateTableByName(const std::string &name);
 
 
     //
@@ -98,7 +110,13 @@ public:
     bool deleteFromDB(const char *where, ...);
 
 protected:
-    bool updateExistTable(TableDescriptorBase::Ptr td);
+    bool updateExistTable(TableDescriptorBase* td);
+
+    bool createTable(TableDescriptorBase* td);
+
+    bool dropTable(TableDescriptorBase* td);
+
+    bool updateTable(TableDescriptorBase* td);
 
     struct UseResultBase {};
 
@@ -127,5 +145,8 @@ private:
 #include "tinyorm_soci.in.h"
 
 using TinyORM = TinySociORM;
+
+template <typename T>
+using Object2DB = Object2DB_T<T, TinySociORM>;
 
 #endif //TINYWORLD_TINYORM_SOCI_H

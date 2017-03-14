@@ -31,16 +31,81 @@ bool TinySociORM::updateTables() {
          it != TableFactory::instance().tables().end(); ++it) {
 
         if (tables.find(it->second->table) == tables.end()) { // not exist
-            createTable(it->second->table);
+            createTableByName(it->second->table);
         } else {
-            updateExistTable(it->second);
+            updateExistTable(it->second.get());
         }
     }
 
     return true;
 }
 
-bool TinySociORM::updateExistTable(TableDescriptorBase::Ptr td) {
+template<typename T>
+bool TinySociORM::createTableByType() {
+    auto td = TableFactory::instance().tableByType<T>();
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    return createTable(td);
+}
+
+bool TinySociORM::createTableByName(const std::string &name) {
+    auto td = TableFactory::instance().tableByName(name);
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    return createTable(td.get());
+}
+
+
+template<typename T>
+bool TinySociORM::dropTableByType() {
+    auto td = TableFactory::instance().tableByType<T>();
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    return dropTable(td);
+}
+
+bool TinySociORM::dropTableByName(const std::string &name) {
+    auto td = TableFactory::instance().tableByName(name);
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    return dropTable(td.get());
+}
+
+
+template<typename T>
+bool TinySociORM::updateTableByType() {
+    auto td = TableFactory::instance().tableByType<T>();
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    return updateTable(td);
+}
+
+bool TinySociORM::updateTableByName(const std::string &name) {
+    auto td = TableFactory::instance().tableByName(name);
+    if (!td) {
+        LOG_ERROR("TinySociORM", "%s: Table descriptor is not exist", __PRETTY_FUNCTION__);
+        return false;
+    }
+
+    return updateTable(td.get());
+}
+
+bool TinySociORM::updateExistTable(TableDescriptorBase *td) {
 
     try {
         std::set<std::string> fields_db;
@@ -63,58 +128,46 @@ bool TinySociORM::updateExistTable(TableDescriptorBase::Ptr td) {
     }
 }
 
-bool TinySociORM::updateTable(const std::string &table) {
-    auto td = TableFactory::instance().tableByName(table);
-    if (!td) {
-        LOG_ERROR("TinySociORM", "updateTable:%s, error:table meta is nonexist", table.c_str());
-        return false;
-    }
+bool TinySociORM::updateTable(TableDescriptorBase *td) {
+    if (!td) return false;
 
     try {
-        soci::rowset<soci::row> desc = session_->prepare << "SHOW TABLES LIKE " << table;
+        soci::rowset<soci::row> desc = session_->prepare << "SHOW TABLES LIKE \"" << td->table << "\"";
         if (desc.begin() != desc.end())  // table exist
             return updateExistTable(td);
         else  // table not exist then create
-            return createTable(table);
+            return createTable(td);
     }
     catch (std::exception &e) {
-        LOG_ERROR("TinySociORM", "updateTable:%s, error:%s", table.c_str(), e.what());
+        LOG_ERROR("TinySociORM", "updateTable:%s, error:%s", td->table.c_str(), e.what());
         return false;
     }
 
     return false;
 }
 
-bool TinySociORM::createTable(const std::string &table) {
-    auto td = TableFactory::instance().tableByName(table);
-    if (!td) {
-        LOG_ERROR("TinySociORM", "createTable:%s, error:table meta is nonexist", table.c_str());
-        return false;
-    }
+bool TinySociORM::createTable(TableDescriptorBase* td) {
+    if (!td) return false;
 
     try {
         session() << td->sql_create();
     }
     catch (std::exception &e) {
-        LOG_ERROR("TinySociORM", "createTable:%s, error:%s", table.c_str(), e.what());
+        LOG_ERROR("TinySociORM", "createTable:%s, error:%s", td->table.c_str(), e.what());
         return false;
     }
 
     return true;
 }
 
-bool TinySociORM::dropTable(const std::string &table) {
-    auto td = TableFactory::instance().tableByName(table);
-    if (!td) {
-        LOG_ERROR("TinySociORM", "dropTable:%s, error:table meta is nonexist", table.c_str());
-        return false;
-    }
+bool TinySociORM::dropTable(TableDescriptorBase* td) {
+    if (!td) return false;
 
     try {
         session() << td->sql_drop();
     }
     catch (std::exception &e) {
-        LOG_ERROR("TinySociORM", "dropTable:%s, error:%s", table.c_str(), e.what());
+        LOG_ERROR("TinySociORM", "dropTable:%s, error:%s", td->table.c_str(), e.what());
         return false;
     }
 
@@ -627,7 +680,8 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
                 break;
             }
             case FieldType::INT64  : {
-                td->reflection.template set<int64_t>(obj, fd->name, record.get<long long>(i));
+                td->reflection.template set<int64_t>(obj, fd->name, record.get < long
+                long > (i));
                 break;
             }
             case FieldType::UINT8   : {
@@ -639,11 +693,14 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
                 break;
             }
             case FieldType::UINT32  : {
-                td->reflection.template set<uint32_t>(obj, fd->name, record.get<long long>(i));
+                td->reflection.template set<uint32_t>(obj, fd->name, record.get < long
+                long > (i));
                 break;
             }
             case FieldType::UINT64  : {
-                td->reflection.template set<uint64_t>(obj, fd->name, record.get<unsigned long long>(i));
+                td->reflection.template set<uint64_t>(obj, fd->name, record.get < unsigned
+                long
+                long > (i));
                 break;
             }
 

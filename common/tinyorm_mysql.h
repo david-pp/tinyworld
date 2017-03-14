@@ -9,12 +9,15 @@
 
 class TinyMySqlORM {
 public:
+    typedef MySqlConnectionPool PoolType;
+    typedef mysqlpp::Connection ConnectionType;
+
     //
     // 构造: 支持两种方式:
     //   1. 连接池
     //   2. 指定连接
     //
-    TinyMySqlORM(MySqlConnectionPool *pool = MySqlConnectionPool::instance()) {
+    TinyMySqlORM(MySqlConnectionPool *pool = &MySqlConnectionPool::instance()) {
         if (pool) {
             pool_ = pool;
             mysql_ = pool->grab();
@@ -46,12 +49,20 @@ public:
     //
     // 创建、删除、自动更新表结构
     //
-    bool createTable(const std::string &table);
+    template<typename T>
+    bool createTableByType();
 
-    bool dropTable(const std::string &table);
+    bool createTableByName(const std::string &name);
 
-    bool updateTable(const std::string &table);
+    template<typename T>
+    bool dropTableByType();
 
+    bool dropTableByName(const std::string &name);
+
+    template<typename T>
+    bool updateTableByType();
+
+    bool updateTableByName(const std::string &name);
 
     //
     // 针对某个对象的数据库操作
@@ -119,7 +130,13 @@ public:
 
 
 protected:
-    bool updateExistTable(TableDescriptorBase::Ptr td);
+    bool updateExistTable(TableDescriptorBase* td);
+
+    bool createTable(TableDescriptorBase* td);
+
+    bool dropTable(TableDescriptorBase* td);
+
+    bool updateTable(TableDescriptorBase* td);
 
 
     //
@@ -151,5 +168,8 @@ private:
 #include "tinyorm_mysql.in.h"
 
 using TinyORM = TinyMySqlORM;
+
+template <typename T>
+using Object2DB = Object2DB_T<T, TinyMySqlORM>;
 
 #endif //TINYWORLD_TINYORM_MYSQL_H
