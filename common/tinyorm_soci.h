@@ -126,4 +126,6 @@ private:
 
 #include "tinyorm_soci.in.h"
 
+using TinyORM = TinySociORM;
+
 #endif //TINYWORLD_TINYORM_SOCI_H

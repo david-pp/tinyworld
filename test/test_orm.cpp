@@ -11,81 +11,25 @@
 #include "tinyorm.h"
 #include "tinyorm_mysql.h"
 
-struct PoDMem {
-    uint32_t value;
-};
-
-struct NonPoDMem {
-    uint32_t id;
-    std::string name;
-};
-
-//template <>
-//struct TinySerializer<NonPoDMem> {
-//    static bool serialize(const NonPoDMem &object, std::string &bin) {
-//        bin = "NonPoDMem";
-//        return true;
-//    }
-//
-//    static bool deserialize(NonPoDMem &object, const std::string &bin) {
-//        return true;
-//    }
-//};
-
-struct Player {
-    uint32_t id = 1024;
-    std::string name = "david";
-    uint8_t age = 30;
-
-    PoDMem obj1;
-    NonPoDMem obj2;
-
-    void dump() const {
-        std::cout << "Player:" << id << "," << name << "," << (int) age << std::endl;
-    }
-};
-
-////////////////////////////////////////////////////////////
-
-// TODO: 生成DB操作
-struct PlayerRegister {
-    PlayerRegister() {
-        StructFactory::instance().declare<NonPoDMem>()
-                .property("id", &NonPoDMem::id)
-                .property("name", &NonPoDMem::name);
-
-        TableFactory::instance().table<Player>("PLAYER")
-                .field(&Player::id, "ID", FieldType::UINT32)
-                .field(&Player::name, "NAME", FieldType::VCHAR, "david", 32)
-                .field(&Player::age, "AGE", FieldType::UINT8, "30")
-                .field(&Player::obj1, "OBJ1", FieldType::OBJECT)
-                .field(&Player::obj2, "OBJ2", FieldType::OBJECT)
-                .key("ID")
-                .index("NAME");
-    }
-};
-
-static PlayerRegister register___;
-
-////////////////////////////////////////////////////////////
+#include "test_orm.h"
 
 void test_create() {
-    TinyMySqlORM db;
+    TinyORM db;
     db.createTable("PLAYER");
 }
 
 void test_drop() {
-    TinyMySqlORM db;
+    TinyORM db;
     db.dropTable("PLAYER");
 }
 
 void test_update() {
-    TinyMySqlORM db;
+    TinyORM db;
     db.updateTables();
 }
 
 void test_sql() {
-    TinyMySqlORM db;
+    TinyORM db;
 
     {
         mysqlpp::Query query(NULL);
@@ -120,7 +64,7 @@ void test_sql() {
 
 void test_insertDB() {
 
-    TinyMySqlORM db;
+    TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
         p.id = i;
@@ -131,7 +75,7 @@ void test_insertDB() {
 };
 
 void test_replaceDB() {
-    TinyMySqlORM db;
+    TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
         p.id = i;
@@ -142,7 +86,7 @@ void test_replaceDB() {
 }
 
 void test_updateDB() {
-    TinyMySqlORM db;
+    TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
         p.id = i;
@@ -153,7 +97,7 @@ void test_updateDB() {
 }
 
 void test_deleteDB() {
-    TinyMySqlORM db;
+    TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
         p.id = i;
@@ -162,36 +106,36 @@ void test_deleteDB() {
 }
 
 void test_selectDB() {
-    TinyMySqlORM db;
+    TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
         p.id = i;
         p.age = 0;
         p.name = "";
         if (db.select(p))
-            p.dump();
+            std::cout << p << std::endl;
     }
 }
 
 void test_load() {
-    TinyMySqlORM db;
-    TinyMySqlORM::Records<Player> players;
+    TinyORM db;
+    TinyORM::Records<Player> players;
     db.loadFromDB(players, "WHERE ID %% %d=0 ORDER BY ID DESC", 2);
 
     for (auto p : players) {
-        p->dump();
+        std::cout << *p;
     }
 }
 
 void test_load2() {
-    TinyMySqlORM db;
+    TinyORM db;
     db.loadFromDB<Player>([](std::shared_ptr<Player> p){
-        p->dump();
+        std::cout << *p;
     }, nullptr);
 }
 
 void test_load3() {
-    TinyMySqlORM db;
+    TinyORM db;
 
     struct PlayerCompare {
         bool operator () (const std::shared_ptr<Player>& lhs, const std::shared_ptr<Player>& rhs) const {
@@ -206,7 +150,7 @@ void test_load3() {
     db.loadFromDB<Player, PlayerSet>(players, nullptr);
 
     for (auto it = players.begin(); it != players.end(); ++it) {
-        (*it)->dump();
+        std::cout << *(*it);
     }
 }
 
@@ -235,7 +179,7 @@ namespace tiny {
 }
 
 void test_load4() {
-    TinyMySqlORM db;
+    TinyORM db;
 
     tiny::PlayerSet players;
     db.loadFromDB2MultiIndexSet<Player, tiny::PlayerSet>(players, nullptr);
@@ -245,11 +189,11 @@ void test_load4() {
 
     auto it = players_by_id.find(5);
     if (it != players_by_id.end()) {
-        it->dump();
+        std::cout << (*it);
     }
 
     for (auto it = players_by_name.begin(); it != players_by_name.end(); ++ it) {
-        it->dump();
+        std::cout << (*it);
     }
 
     std::cout << players_by_name.count("david") << std::endl;
@@ -257,7 +201,7 @@ void test_load4() {
 
 
 void test_delete() {
-    TinyMySqlORM db;
+    TinyORM db;
     db.deleteFromDB<Player>("WHERE ID %% %d=0", 2);
 }
 

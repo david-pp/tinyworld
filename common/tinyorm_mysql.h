@@ -150,4 +150,6 @@ private:
 
 #include "tinyorm_mysql.in.h"
 
+using TinyORM = TinyMySqlORM;
+
 #endif //TINYWORLD_TINYORM_MYSQL_H

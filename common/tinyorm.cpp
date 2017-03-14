@@ -38,11 +38,11 @@ std::string FieldDescriptor::sql_type() {
 
         case FieldType::BYTES:
             return "BLOB";
-        case FieldType::BYTES8:
+        case FieldType::BYTES_TINY:
             return "TINYBLOB";
-        case FieldType::BYTES24:
+        case FieldType::BYTES_MEDIUM:
             return "MEDIUMBLOB";
-        case FieldType::BYTES32:
+        case FieldType::BYTES_LONG:
             return "LONGBLOB";
         case FieldType::OBJECT:
             return "BLOB";
@@ -75,9 +75,9 @@ std::string FieldDescriptor::sql_ddl() {
 
     if (FieldType::STRING == type ||
             FieldType::BYTES == type ||
-            FieldType::BYTES8 == type ||
-            FieldType::BYTES24 == type ||
-            FieldType::BYTES32 == type ||
+            FieldType::BYTES_TINY == type ||
+            FieldType::BYTES_MEDIUM == type ||
+            FieldType::BYTES_LONG == type ||
             FieldType::OBJECT == type )
         return os.str();
 

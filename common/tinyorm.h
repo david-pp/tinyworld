@@ -29,9 +29,9 @@ enum class FieldType : uint8_t {
     VCHAR,
 
     BYTES,
-    BYTES8,
-    BYTES24,
-    BYTES32,
+    BYTES_TINY,
+    BYTES_MEDIUM,
+    BYTES_LONG,
 
     OBJECT,
 };

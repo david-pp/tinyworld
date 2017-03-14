@@ -492,6 +492,7 @@ TinySociORM::UseResultBase *
 TinySociORM::fieldToStatement(soci::statement &st, T &obj, TableDescriptor<T> *td, FieldDescriptor::Ptr fd) {
     if (!td || !fd) return nullptr;
 
+    // http://soci.sourceforge.net/doc/3.2/backends/mysql.html#dynamic
     switch (fd->type) {
 
         case FieldType::INT8   : {
@@ -500,17 +501,17 @@ TinySociORM::fieldToStatement(soci::statement &st, T &obj, TableDescriptor<T> *t
             return result;
         }
         case FieldType::INT16  : {
-            auto result = new UseResult<int16_t>(td->reflection.template get<int16_t>(obj, fd->name));
+            auto result = new UseResult<int>(td->reflection.template get<int16_t>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
         case FieldType::INT32  : {
-            auto result = new UseResult<int32_t>(td->reflection.template get<int32_t>(obj, fd->name));
+            auto result = new UseResult<int>(td->reflection.template get<int32_t>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
         case FieldType::INT64  : {
-            auto result = new UseResult<int64_t>(td->reflection.template get<int64_t>(obj, fd->name));
+            auto result = new UseResult<long long>(td->reflection.template get<int64_t>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
@@ -520,17 +521,17 @@ TinySociORM::fieldToStatement(soci::statement &st, T &obj, TableDescriptor<T> *t
             return result;
         }
         case FieldType::UINT16  : {
-            auto result = new UseResult<uint16_t>(td->reflection.template get<uint16_t>(obj, fd->name));
+            auto result = new UseResult<int>(td->reflection.template get<uint16_t>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
         case FieldType::UINT32  : {
-            auto result = new UseResult<uint32_t>(td->reflection.template get<uint32_t>(obj, fd->name));
+            auto result = new UseResult<long long>(td->reflection.template get<uint32_t>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
         case FieldType::UINT64  : {
-            auto result = new UseResult<uint64_t>(td->reflection.template get<uint64_t>(obj, fd->name));
+            auto result = new UseResult<unsigned long long>(td->reflection.template get<uint64_t>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
@@ -568,17 +569,17 @@ TinySociORM::fieldToStatement(soci::statement &st, T &obj, TableDescriptor<T> *t
             st.exchange(soci::use(result->value));
             return result;
         }
-        case FieldType::BYTES8: {
+        case FieldType::BYTES_TINY: {
             auto result = new UseResult<std::string>(td->reflection.template get<std::string>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
-        case FieldType::BYTES24: {
+        case FieldType::BYTES_MEDIUM: {
             auto result = new UseResult<std::string>(td->reflection.template get<std::string>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
         }
-        case FieldType::BYTES32: {
+        case FieldType::BYTES_LONG: {
             auto result = new UseResult<std::string>(td->reflection.template get<std::string>(obj, fd->name));
             st.exchange(soci::use(result->value));
             return result;
@@ -607,9 +608,10 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
 
     bool ret = true;
 
+    // http://soci.sourceforge.net/doc/3.2/backends/mysql.html#dynamic
     for (size_t i = 0; i < td->fields().size(); ++i) {
         auto fd = td->fields().at(i);
-
+//        LOG_TRACE("TinySociORM", "field:%s", fd->name.c_str());
         switch (fd->type) {
 
             case FieldType::INT8   : {
@@ -621,13 +623,11 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
                 break;
             }
             case FieldType::INT32  : {
-                td->reflection.template set<int32_t>(obj, fd->name, record.get < unsigned
-                int > (i));
+                td->reflection.template set<int32_t>(obj, fd->name, record.get<int>(i));
                 break;
             }
             case FieldType::INT64  : {
-                td->reflection.template set<int64_t>(obj, fd->name, record.get < long
-                long > (i));
+                td->reflection.template set<int64_t>(obj, fd->name, record.get<long long>(i));
                 break;
             }
             case FieldType::UINT8   : {
@@ -639,13 +639,11 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
                 break;
             }
             case FieldType::UINT32  : {
-                td->reflection.template set<uint32_t>(obj, fd->name, record.get < unsigned
-                int > (i));
+                td->reflection.template set<uint32_t>(obj, fd->name, record.get<long long>(i));
                 break;
             }
             case FieldType::UINT64  : {
-                td->reflection.template set<uint64_t>(obj, fd->name, record.get < long
-                long > (i));
+                td->reflection.template set<uint64_t>(obj, fd->name, record.get<unsigned long long>(i));
                 break;
             }
 
@@ -676,15 +674,15 @@ bool TinySociORM::recordToObject(soci::row &record, T &obj, TableDescriptor<T> *
                 td->reflection.template set<std::string>(obj, fd->name, record.get<std::string>(i));
                 break;
             }
-            case FieldType::BYTES8: {
+            case FieldType::BYTES_TINY: {
                 td->reflection.template set<std::string>(obj, fd->name, record.get<std::string>(i));
                 break;
             }
-            case FieldType::BYTES24: {
+            case FieldType::BYTES_MEDIUM: {
                 td->reflection.template set<std::string>(obj, fd->name, record.get<std::string>(i));
                 break;
             }
-            case FieldType::BYTES32: {
+            case FieldType::BYTES_LONG: {
                 td->reflection.template set<std::string>(obj, fd->name, record.get<std::string>(i));
                 break;
             }

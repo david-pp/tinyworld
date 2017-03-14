@@ -519,15 +519,15 @@ bool TinyMySqlORM::fieldToQuery(mysqlpp::Query &query, T &obj, TableDescriptor<T
             query << mysqlpp::quote << td->reflection.template get<std::string>(obj, fd->name);
             return true;
         }
-        case FieldType::BYTES8: {
+        case FieldType::BYTES_TINY: {
             query << mysqlpp::quote << td->reflection.template get<std::string>(obj, fd->name);
             return true;
         }
-        case FieldType::BYTES24: {
+        case FieldType::BYTES_MEDIUM: {
             query << mysqlpp::quote << td->reflection.template get<std::string>(obj, fd->name);
             return true;
         }
-        case FieldType::BYTES32: {
+        case FieldType::BYTES_LONG: {
             query << mysqlpp::quote << td->reflection.template get<std::string>(obj, fd->name);
             return true;
         }
@@ -622,17 +622,17 @@ bool TinyMySqlORM::recordToObject(mysqlpp::Row &record, T &obj, TableDescriptor<
                         obj, fd->name, std::string(record[i].data(), record[i].size()));
                 break;
             }
-            case FieldType::BYTES8: {
+            case FieldType::BYTES_TINY: {
                 td->reflection.template set<std::string>(
                         obj, fd->name, std::string(record[i].data(), record[i].size()));
                 break;
             }
-            case FieldType::BYTES24: {
+            case FieldType::BYTES_MEDIUM: {
                 td->reflection.template set<std::string>(
                         obj, fd->name, std::string(record[i].data(), record[i].size()));
                 break;
             }
-            case FieldType::BYTES32: {
+            case FieldType::BYTES_LONG: {
                 td->reflection.template set<std::string>(
                         obj, fd->name, std::string(record[i].data(), record[i].size()));
                 break;
