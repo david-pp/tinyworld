@@ -53,6 +53,11 @@ public:
 
     const std::string &url() const { return url_; }
 
+    void connect(const std::string& url) {
+        setServerAddress(url);
+        createAll();
+    }
+
 protected:
     virtual mysqlpp::Connection *create();
 

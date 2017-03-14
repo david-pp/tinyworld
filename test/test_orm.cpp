@@ -212,9 +212,7 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    MySqlConnectionPool::instance()->setServerAddress("mysql://david:123456@127.0.0.1/tinyworld?maxconn=5");
-    MySqlConnectionPool::instance()->createAll();
-    MySqlConnectionPool::instance()->setGrabWaitTime(0);
+    MySqlConnectionPool::instance()->connect("mysql://david:123456@127.0.0.1/tinyworld?maxconn=5");
 
     std::string op = argv[1];
     if ("sql" == op)
