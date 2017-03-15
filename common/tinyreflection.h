@@ -88,6 +88,7 @@ struct Struct : public StructBase {
 public:
     typedef std::vector<typename Property<T>::Ptr> PropertyContainer;
     typedef std::unordered_map<std::string, typename Property<T>::Ptr> PropertyMap;
+    typedef std::unordered_map<uint16_t, typename Property<T>::Ptr> PropertyMapByID;
 
     Struct(const std::string &name, uint16_t version = 0)
             : name_(name), version_(version) {}
@@ -102,6 +103,10 @@ public:
             typename Property<T>::Ptr ptr(makePropery<T>(name, id, std::mem_fn(prop)));
             properties_[name] = ptr;
             properties_ordered_.push_back(ptr);
+
+            if (id) {
+                properties_byid_[id] = ptr;
+            }
         }
 
         return *this;
@@ -123,6 +128,13 @@ public:
     typename Property<T>::Ptr propertyByName(const std::string &name) {
         auto it = properties_.find(name);
         if (it != properties_.end())
+            return it->second;
+        return typename Property<T>::Ptr();
+    }
+
+    typename Property<T>::Ptr propertyByID(uint16_t id) {
+        auto it = properties_byid_.find(id);
+        if (it != properties_byid_.end())
             return it->second;
         return typename Property<T>::Ptr();
     }
@@ -152,6 +164,7 @@ private:
     std::string name_;
     PropertyContainer properties_ordered_;
     PropertyMap properties_;
+    PropertyMapByID properties_byid_;
 
     uint16_t version_ = 0;
 };
