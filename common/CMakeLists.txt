@@ -26,8 +26,11 @@ foreach(PB ${PROTOS})
             OUTPUT  ${PB_CPPOUT}
             COMMAND ${PROTOC} -I=${PROTOS_DIR} --cpp_out=${PROTOS_CPPOUT_DIR} ${PB}
             DEPENDS  ${PB})
+
+    message("${PROTOC} -I=${PROTOS_DIR} --cpp_out=${PROTOS_CPPOUT_DIR} ${PB}")
+
 endforeach(PB ${PROTOS})
 
 #file(GLOB SRCFILES *.cpp)
-set(SRCFILES tinymysql.cpp url.cpp rpc.cpp tinyorm.cpp ${PB_CPPOUT})
+set(SRCFILES tinymysql.cpp url.cpp rpc.cpp tinyorm.cpp ${PB_CPPOUTS})
 add_library(tinyworld STATIC ${SRCFILES})

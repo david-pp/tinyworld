@@ -9,8 +9,6 @@
 #include <typeinfo>
 #include <type_traits>
 #include <boost/any.hpp>
-#include "tinyserializer_dec.h"
-
 
 template<typename T>
 class Property {
@@ -22,12 +20,12 @@ public:
 
     const std::string &name() { return name_; }
 
-    uint16_t id() { return id_; }
+    uint16_t number() { return id_; }
 
 public:
     virtual const std::type_info &type() = 0;
 
-    virtual boost::any get(T &) = 0;
+    virtual boost::any get(const T &) = 0;
 
     virtual void set(T &, boost::any &) = 0;
 
@@ -35,13 +33,13 @@ public:
 
     virtual bool deserialize(T &object, const std::string &bin) = 0;
 
-private:
+protected:
     std::string name_;
     uint16_t id_;
 };
 
 
-template<typename T, typename MemFn>
+template<typename T, typename MemFn, typename SerializerT>
 class Property_T : public Property<T> {
 public:
     Property_T(const std::string &name, uint16_t id, MemFn fn)
@@ -54,7 +52,7 @@ public:
         return typeid(PropType);
     };
 
-    boost::any get(T &obj) final {
+    boost::any get(const T &obj) final {
         return fn_(obj);
     }
 
@@ -63,24 +61,25 @@ public:
     }
 
     std::string serialize(const T &obj) final {
-        return tiny::serialize(fn_(obj));
+        return SerializerT::serialize(fn_(obj));
     }
 
     bool deserialize(T &obj, const std::string &bin) final {
-        return tiny::deserialize(fn_(obj), bin);
+        return SerializerT::deserialize(fn_(obj), bin);
     }
 
-private:
+protected:
     MemFn fn_;
 };
 
-template<typename T, typename MemFn>
-Property_T<T, MemFn> *makePropery(const std::string &name, uint16_t id, MemFn fn) {
-    return new Property_T<T, MemFn>(name, id, fn);
+template<typename T, typename SerializerT, typename MemFn>
+Property_T<T, MemFn, SerializerT> *makePropery(const std::string &name, uint16_t id, MemFn fn) {
+    return new Property_T<T, MemFn, SerializerT>(name, id, fn);
 }
 
 
 struct StructBase {
+    virtual void create() {}
 };
 
 template<typename T>
@@ -97,10 +96,10 @@ public:
 
     T *clone() { return new T; }
 
-    template<typename PropType>
+    template<template <typename> class SerializerT/*=DynSerializer*/, typename PropType>
     Struct<T> &property(const std::string &name, PropType T::* prop, uint16_t id = 0) {
         if (!hasPropery(name)) {
-            typename Property<T>::Ptr ptr(makePropery<T>(name, id, std::mem_fn(prop)));
+            typename Property<T>::Ptr ptr(makePropery<T, SerializerT<PropType>>(name, id, std::mem_fn(prop)));
             properties_[name] = ptr;
             properties_ordered_.push_back(ptr);
 
@@ -140,7 +139,7 @@ public:
     }
 
     template<typename PropType>
-    PropType get(T &obj, const std::string &propname) {
+    PropType get(const T &obj, const std::string &propname) {
         auto prop = propertyByName(propname);
         if (prop)
             return boost::any_cast<PropType>(prop->get(obj));
@@ -160,7 +159,7 @@ public:
 
     uint16_t version() { return version_; }
 
-private:
+protected:
     std::string name_;
     PropertyContainer properties_ordered_;
     PropertyMap properties_;
@@ -205,7 +204,7 @@ struct StructFactory {
         return NULL;
     }
 
-private:
+protected:
     typedef std::unordered_map<std::string, std::shared_ptr<StructBase>> Structs;
 
     Structs structs_by_typeid_;

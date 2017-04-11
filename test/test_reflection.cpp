@@ -1,28 +1,11 @@
 #include "tinyreflection.h"
 #include "tinyserializer.h"
 
-struct Mem {
-
-};
-
-
-//template <>
-//struct TinySerializer<NonPoDMem> {
-//    static bool serialize(const NonPoDMem &object, std::string &bin) {
-//        bin = "NonPoDMem";
-//        return true;
-//    }
-//
-//    static bool deserialize(NonPoDMem &object, const std::string &bin) {
-//        return true;
-//    }
-//};
 
 struct Int {
 
     int value;
 };
-
 
 
 struct Player {
