@@ -90,7 +90,7 @@ struct Player {
 };
 
 
-template <>
+template<>
 struct ProtoSerializer<Player> {
     std::string serialize(const Player &p) const {
         PlayerProto proto;
@@ -200,6 +200,99 @@ void test_userdefined() {
     }
 }
 
+void test_archiver() {
+    std::cout << "--------" << __PRETTY_FUNCTION__ << std::endl;
+
+
+    std::string data;
+
+    // 序列化
+    {
+        PlayerProto p;
+        p.set_id(1024);
+        p.set_name("david");
+
+        std::vector<PlayerProto> pvec{p, p, p};
+
+        std::map<uint32_t, PlayerProto> pmap{
+                {1, p},
+                {2, p},
+                {3, p}
+        };
+
+        std::vector<std::map<uint32_t, PlayerProto> > vecmap{pmap, pmap, pmap};
+
+        ProtoArchiver ar;
+        ar << p << p << p;        // 支持：proto生成的类型
+        ar << pvec;               // 支持：std::vector
+        ar << pmap;               // 支持：std::map
+        ar << vecmap;             // 支持：STL的各种组合和嵌套
+        ar << ar;                 // 支持：自己? YES!
+
+//        ar.SerializeToString(&data);
+        data = ::serialize(ar);
+    }
+
+    // 反序列化
+    {
+        PlayerProto p1, p2, p3;
+        std::vector<PlayerProto> pvec;
+        std::map<uint32_t, PlayerProto> pmap;
+        std::vector<std::map<uint32_t, PlayerProto> > vecmap;
+
+        ProtoArchiver ar, ar2;
+//        if (ar.ParseFromString(data)) {
+        if (::deserialize(ar, data)) {
+            ar >> p1 >> p2 >> p3;
+            ar >> pvec;
+            ar >> pmap;
+            ar >> vecmap;
+            ar >> ar2;
+        }
+
+        std::cout << "--- p1 ----" << std::endl;
+        {
+            std::cout << p1.ShortDebugString() << std::endl;
+        }
+        std::cout << "--- p2 ----" << std::endl;
+        {
+            std::cout << p2.ShortDebugString() << std::endl;
+        }
+        std::cout << "--- p3 ----" << std::endl;
+        {
+            std::cout << p3.ShortDebugString() << std::endl;
+        }
+
+        std::cout << "--- vector<P> ----" << std::endl;
+        {
+            for (auto &p : pvec) {
+                std::cout << p.ShortDebugString() << std::endl;
+            }
+        }
+
+        std::cout << "--- map<P> ----" << std::endl;
+        {
+            for (auto &v : pmap) {
+                std::cout << v.first << " : " << v.second.ShortDebugString() << std::endl;
+            }
+        }
+
+        std::cout << "--- vector<map<P>> ----" << std::endl;
+        {
+            for (auto &item : vecmap) {
+                for (auto &v: item)
+                    std::cout << v.first << " : " << v.second.ShortDebugString() << std::endl;
+                std::cout << std::endl;
+            }
+        }
+
+        std::cout << "---- ar ----" << std::endl;
+        {
+            std::cout << ar2.DebugString() << std::endl;
+        }
+    }
+}
+
 int main() {
     std::cout << std::is_base_of<google::protobuf::Message, ArchiveProto>::value << std::endl;
 
@@ -210,4 +303,5 @@ int main() {
 
     test_basic();
     test_userdefined();
+    test_archiver();
 }

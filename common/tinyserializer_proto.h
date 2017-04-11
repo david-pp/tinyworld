@@ -14,6 +14,34 @@ template<typename T>
 struct ProtoSerializer : public ProtoSerializerImpl<T, ProtoCase<T>::value> {
 };
 
+//
+// 顺序必须要固定的归档器
+//
+class ProtoArchiver : public ArchiveProto {
+public:
+    template<typename T>
+    ProtoArchiver &operator<<(const T &object) {
+        ArchiveMemberProto *mem = this->add_members();
+        if (mem) {
+            mem->set_data(serialize(object));
+        }
+        return *this;
+    }
+
+    template<typename T>
+    ProtoArchiver &operator>>(T &object) {
+        if (read_pos_ < this->members_size()) {
+            const ArchiveMemberProto &mem = this->members(read_pos_);
+            deserialize(object, mem.data());
+            read_pos_++;
+        }
+        return *this;
+    }
+
+private:
+    int read_pos_ = 0;
+};
+
 
 // Proto Case
 
