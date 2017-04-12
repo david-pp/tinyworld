@@ -24,13 +24,10 @@ void test_byname() {
     send.set_type(20);
     std::cout << send.DebugString() << std::endl;
 
-    MessageBuffer buf;
-    buf.writeByName(send);
 
     // 打包
-    std::string &msgbuf = buf.str();
-//    ProtobufMsgDispatcherByName<>::pack(msgbuf, send);
-//    MessageBuffer::packMsgByName(msgbuf, Cmd::LoginRequest::descriptor()->full_name(), send);
+    std::string msgbuf;
+    ProtobufMsgDispatcherByName<>::pack(msgbuf, send);
 
     MessageHeader *header = (MessageHeader *) msgbuf.data();
     std::cout << header->dumphex() << std::endl;
@@ -243,7 +240,7 @@ void test_1() {
 
     hexdump(msgbuf.str());
 
-    MessageDispatcher<> dispatcher;
+    MessageNameDispatcher<> dispatcher;
     dispatcher
             .on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &request) {
                 std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
@@ -354,7 +351,7 @@ void test_2() {
 
     hexdump(msgbuf.str());
 
-    MessageDispatcher<> dispatcher;
+    MessageNameDispatcher<> dispatcher;
     dispatcher
             .on<LoginReq, LoginRep>([](const LoginReq &request) {
                 std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
@@ -374,12 +371,60 @@ void test_2() {
             std::cout << "---- over" << std::endl;
         }
     }
-
 }
+
+//DECLARE_MESSAGE_BY_TYPE(Cmd::LoginRequest, 1);
+//DECLARE_MESSAGE_BY_TYPE(Cmd::LoginReply, 2);
+
+DECLARE_MESSAGE_BY_TYPE2(Cmd::LoginRequest, 1, 1);
+DECLARE_MESSAGE_BY_TYPE2(Cmd::LoginReply, 1, 2);
+
+void test_3() {
+    std::cout << "--------" << __PRETTY_FUNCTION__ << std::endl;
+
+    Cmd::LoginRequest send;
+    send.set_id(12345);
+    send.set_password("passwd");
+    send.set_type(20);
+    std::cout << send.ShortDebugString() << std::endl;
+
+
+    MessageBuffer msgbuf;
+    msgbuf.writeByType(send);
+
+    hexdump(msgbuf.str());
+
+    MessageDispatcher<> dispatcher;
+    dispatcher
+            .on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &request) {
+                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
+                std::cout << request.DebugString() << std::endl;
+                Cmd::LoginReply reply;
+                reply.set_info("hello");
+                return reply;
+            })
+            .on<Cmd::LoginReply>([](const Cmd::LoginReply &msg) {
+                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
+                std::cout << msg.DebugString() << std::endl;
+            });
+
+    try {
+        MessageBufferPtr reply = dispatcher.dispatch(msgbuf.str());
+        if (reply) {
+            if (!dispatcher.dispatch(reply->str())) {
+                std::cout << "---- over" << std::endl;
+            }
+        }
+    } catch (std::exception &e) {
+        std::cout << e.what() << std::endl;
+    }
+}
+
 
 int main(int argc, const char *argv[]) {
     test_1();
     test_2();
+    test_3();
 //    test_byname();
 //    test_byid1();
 //    test_byid2();

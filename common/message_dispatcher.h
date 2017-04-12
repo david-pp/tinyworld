@@ -31,6 +31,7 @@
 #include <memory>
 #include <functional>
 #include <exception>
+#include <google/protobuf/message.h>
 
 #include "message.h"
 #include "tinyserializer.h"
@@ -52,7 +53,6 @@ private:
 template<typename MsgT, int>
 struct MessageNameImpl;
 
-#include <google/protobuf/message.h>
 
 template<typename MsgT>
 struct MessageName {
@@ -93,11 +93,11 @@ struct MessageTypeCode {
         static std::string value() { return name; } }
 
 #define DECLARE_MESSAGE_BY_TYPE(MsgType, type) \
-    template <> struct MessageName<MsgType> { \
+    template <> struct MessageTypeCode<MsgType> { \
         static uint16 value() { return type; } }
 
 #define DECLARE_MESSAGE_BY_TYPE2(MsgType, type1, type2) \
-    template <> struct MessageName<MsgType> { \
+    template <> struct MessageTypeCode<MsgType> { \
         static uint16 value() { return MAKE_MSG_TYPE(type1, type2); } }
 
 
@@ -123,21 +123,18 @@ public:
     std::string &str() { return buf_; }
 
 
-    template<template<typename T> class SerializerT = ProtoSerializer, typename MsgT>
-    bool writeByNameOrID(const std::string &name, uint16 type, const MsgT &msg) {
-        if (name.size() > 0)
-            return packMsgByName<SerializerT, MsgT>(buf_, name, msg);
-
-        return false;
-    };
-
-    template<template<typename T> class SerializerT = ProtoSerializer, typename MsgT>
+    template<template<typename> class SerializerT = ProtoSerializer, typename MsgT>
     bool writeByName(const MsgT &msg) {
         return packMsgByName<SerializerT, MsgT>(buf_, MessageName<MsgT>::value(), msg);
     };
 
+    template<template<typename> class SerializerT = ProtoSerializer, typename MsgT>
+    bool writeByType(const MsgT &msg) {
+        return packMsgByType<SerializerT, MsgT>(buf_, MessageTypeCode<MsgT>::value(), msg);
+    };
+
 public:
-    template<template<typename T> class SerializerT = ProtoSerializer, typename MsgT>
+    template<template<typename> class SerializerT = ProtoSerializer, typename MsgT>
     static bool packMsgByName(std::string &buf, const std::string &name, const MsgT &msg) {
         if (name.empty()) return false;
 
@@ -160,6 +157,24 @@ public:
         memcpy(msg_proto, data.data(), data.size());
         return true;
     }
+
+    template<template<typename> class SerializerT = ProtoSerializer, typename MsgT>
+    static bool packMsgByType(std::string &buf, uint16_t type, const MsgT &msg) {
+        std::string data = serialize<SerializerT, MsgT>(msg);
+        if (data.empty()) return false;
+
+        buf.resize(sizeof(MessageHeader) + data.size());
+        MessageHeader *header = (MessageHeader *) buf.data();
+        {
+            header->size = data.size();
+            header->type_is_name = 0;
+            header->type = type;
+        }
+
+        uint8_t *msg_proto = (uint8 *) (buf.data()) + sizeof(MessageHeader);
+        memcpy(msg_proto, data.data(), data.size());
+        return true;
+    };
 
 private:
     std::string buf_;
@@ -187,11 +202,11 @@ public:
     virtual MessageBufferPtr process(const std::string &msgbody, ArgTypes... args) const = 0;
 
 
-    uint16 msgtype() const { return msgtype_; }
+    uint16_t msgtype() const { return msgtype_; }
 
-    uint16 type1() const { return MSG_TYPE_1(msgtype_); }
+    uint16_t type1() const { return MSG_TYPE_1(msgtype_); }
 
-    uint16 type2() const { return MSG_TYPE_2(msgtype_); }
+    uint16_t type2() const { return MSG_TYPE_2(msgtype_); }
 
     const std::string &msgname() const { return msgname_; }
 
@@ -205,7 +220,7 @@ public:
     }
 
 private:
-    uint16 msgtype_;
+    uint16_t msgtype_;
     std::string msgname_;
 };
 
@@ -218,7 +233,7 @@ class MessageHandlerT_N : public MessageHandlerBase<ArgTypes...> {
 public:
     typedef std::function<ReplyT(const RequestT &msg, ArgTypes... args)> Handler;
 
-    MessageHandlerT_N(uint16 msgtype,
+    MessageHandlerT_N(uint16_t msgtype,
                       const std::string &msgname,
                       const Handler &handler)
             : MessageHandlerBase<ArgTypes...>(msgtype, msgname),
@@ -227,13 +242,12 @@ public:
     virtual ~MessageHandlerT_N() {}
 
     MessageBufferPtr process(const std::string &msgbody, ArgTypes... args) const final {
-//        std::cout << __PRETTY_FUNCTION__ << std::endl;
         RequestT request;
         if (deserialize<SerializerT, RequestT>(request, msgbody)) {
             ReplyT reply = handler_(request, args...);
 
             auto buff = std::make_shared<MessageBuffer>();
-            if (buff->writeByNameOrID<SerializerT, ReplyT>(MessageName<ReplyT>::value(), 0, reply))
+            if (DispatcherT::template write2Buffer<SerializerT, ReplyT>(*buff.get(), reply))
                 return buff;
             else
                 throw MsgDispatcherError("Reply write2Buffer failed");
@@ -256,7 +270,7 @@ class MessageHandlerT_N<DispatcherT, RequestT, void, SerializerT, ArgTypes...>
 public:
     typedef std::function<void(const RequestT &msg, ArgTypes... args)> Handler;
 
-    MessageHandlerT_N(uint16 msgtype,
+    MessageHandlerT_N(uint16_t msgtype,
                       const std::string &msgname,
                       const Handler &handler)
             : MessageHandlerBase<ArgTypes...>(msgtype, msgname),
@@ -284,6 +298,87 @@ template<typename... ArgTypes>
 class MessageDispatcher {
 public:
     typedef MessageDispatcher<ArgTypes...> DispatcherType;
+    typedef std::shared_ptr<MessageHandlerBase<ArgTypes...> > MessageHandlerPtr;
+
+    template<typename RequestT, typename ReplyT, template<typename T> class SerializerT>
+    using MessageHandlerType = MessageHandlerT_N<DispatcherType, RequestT, ReplyT, SerializerT, ArgTypes...>;
+
+    //
+    // Default instance
+    //
+    static DispatcherType &instance() {
+        static DispatcherType instance_;
+        return instance_;
+    }
+
+    //
+    // Register message Handler, could be :
+    //  - normal function
+    //  - function object
+    //  - lambda
+    //  - bind expression
+    //
+    template<typename RequestT, typename ReplyT = void, template<typename T> class SerializerT = ProtoSerializer>
+    DispatcherType &
+    on(const typename MessageHandlerType<RequestT, ReplyT, SerializerT>::Handler &handler) {
+        MessageHandlerPtr h(new MessageHandlerType<RequestT, ReplyT, SerializerT>(
+                MessageTypeCode<RequestT>::value(), "", handler));
+        bindHandlerPtr(h);
+        return *this;
+    }
+
+    //
+    // Message Dispatching
+    //
+    MessageBufferPtr dispatch(const std::string &msgdata, ArgTypes... args) {
+        MessageHeader *msgheader = (MessageHeader *) msgdata.data();
+
+        if (msgheader->type_is_name) {
+            throw MsgDispatcherError("message header error");
+            return nullptr;
+        }
+
+        uint8_t *msg_body = (uint8_t *) msgheader + sizeof(MessageHeader);
+        std::string msgbody((char *) msg_body, msgheader->size);
+
+        auto it = handlers_.find(msgheader->type);
+        if (it != handlers_.end()) {
+            return it->second->process(msgbody, args...);
+        } else {
+            throw MsgDispatcherError("handler not exist for : " + std::to_string(msgheader->type));
+        }
+
+        return nullptr;
+    }
+
+    template<template<typename T> class SerializerT = ProtoSerializer, typename MsgT>
+    static bool write2Buffer(MessageBuffer &buff, const MsgT &msg) {
+        return buff.writeByType<SerializerT, MsgT>(msg);
+    }
+
+protected:
+    bool bindHandlerPtr(MessageHandlerPtr handler) {
+        if (!handler) return false;
+
+        if (handlers_.find(handler->msgtype()) != handlers_.end()) {
+            handler->onBindFailed(__PRETTY_FUNCTION__);
+            return false;
+        }
+
+        handlers_.insert(std::make_pair(handler->msgtype(), handler));
+        return true;
+    }
+
+private:
+    typedef std::unordered_map<uint16_t, MessageHandlerPtr> MessageHandlerMap;
+    MessageHandlerMap handlers_;
+};
+
+
+template<typename... ArgTypes>
+class MessageNameDispatcher {
+public:
+    typedef MessageNameDispatcher<ArgTypes...> DispatcherType;
     typedef std::shared_ptr<MessageHandlerBase<ArgTypes...> > MessageHandlerPtr;
 
     template<typename RequestT, typename ReplyT, template<typename T> class SerializerT>
@@ -340,6 +435,11 @@ public:
         return nullptr;
     }
 
+    template<template<typename T> class SerializerT = ProtoSerializer, typename MsgT>
+    static bool write2Buffer(MessageBuffer &buff, const MsgT &msg) {
+        return buff.writeByName<SerializerT, MsgT>(msg);
+    }
+
 protected:
     bool bindHandlerPtr(MessageHandlerPtr handler) {
         if (!handler) return false;
@@ -360,24 +460,10 @@ private:
 
 
 
+
 // TODO: delete following after refactor
-#include <google/protobuf/message.h>
-///////////////////////////////////////////////////////////
-//
-//  基于Protobuf的消息处理和分发(2017/02/04 by David)
-//
-//  提供了3种模式的应用：
-//   1. ProtobufMsgDispatcherByName  - 基于协议名称的
-//   2. ProtobufMsgDispatcherByID1   - 基于协议的消息编号(TYPE)
-//   3. ProtobufMsgDispatcherByID2   - 基于协议的主、次消息编号(TYPE1、TYPE2)
-//
-///////////////////////////////////////////////////////////
 
 
-
-
-// TODO:返回值采用右值引用
-// TODO:待ByName完善后再打开ByID1和ByID2
 
 
 
@@ -722,144 +808,6 @@ private:
 ////    - MSG::TYPE2 为次消息编号
 ////
 /////////////////////////////////////////////////////////////
-//template <typename... ArgTypes>
-//class ProtobufMsgDispatcherByID1
-//{
-//public:
-//    typedef std::shared_ptr<ProtobufMsgHandler<ArgTypes...> > ProtobufMsgHandlerPtr;
-//
-//    //
-//    // 注册消息处理函数，可以是普通函数、函数对象、成员函数、lambda等可执行体
-//    //
-//    template <typename MSG>
-//    ProtobufMsgDispatcherByID1<ArgTypes...>& on(const typename ProtobufMsgHandlerT_N<MSG, ArgTypes...>::Handler& handler)
-//    {
-//        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_N<MSG, ArgTypes...>(MSG::TYPE, MSG::descriptor()->full_name(), handler));
-//        bindHandlerPtr(h);
-//        return *this;
-//    }
-//
-//    template <typename MSG>
-//    ProtobufMsgDispatcherByID1<ArgTypes...>& on_void(const typename ProtobufMsgHandlerT_Void<MSG, ArgTypes...>::Handler& handler)
-//    {
-//        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_Void<MSG, ArgTypes...>(MSG::TYPE, MSG::descriptor()->full_name(), handler));
-//        bindHandlerPtr(h);
-//        return *this;
-//    }
-//
-//    //
-//    // 消息分发
-//    //
-//    bool dispatch(const MessageHeader* msgheader,  ArgTypes... args)
-//    {
-//        if (msgheader->type_is_name > 0)
-//            return false;
-//
-//        uint8* msg_proto = (uint8*)msgheader + sizeof(MessageHeader);
-//
-//        auto it = handlers_.find(msgheader->type);
-//        if (it != handlers_.end())
-//        {
-//            ProtobufMsgHandlerBase::MessagePtr proto(it->second->newMessage());
-//            if (proto && proto->ParseFromArray(msg_proto, msgheader->size))
-//            {
-//                it->second->process(proto, args...);
-//                return true;
-//            }
-//        }
-//
-//        return false;
-//    }
-//
-//protected:
-//    bool bindHandlerPtr(ProtobufMsgHandlerPtr handler)
-//    {
-//        if (!handler) return false;
-//
-//        if (handlers_.find(handler->msgtype()) != handlers_.end()) {
-//            handler->onBindFailed(__PRETTY_FUNCTION__);
-//            return false;
-//        }
-//
-//        handlers_.insert(std::make_pair(handler->msgtype(), handler));
-//        return true;
-//    }
-//
-//private:
-//    typedef std::unordered_map<uint16, ProtobufMsgHandlerPtr> ProtobufMsgHandlerMap;
-//
-//    ProtobufMsgHandlerMap handlers_;
-//};
-//
-//
-//template <typename... ArgTypes>
-//class ProtobufMsgDispatcherByID2
-//{
-//public:
-//    typedef std::shared_ptr<ProtobufMsgHandler<ArgTypes...> > ProtobufMsgHandlerPtr;
-//
-//    //
-//    // 注册消息处理函数，可以是普通函数、函数对象、成员函数、lambda等可执行体
-//    //
-//    template <typename MSG>
-//    ProtobufMsgDispatcherByID2<ArgTypes...>& on(const typename ProtobufMsgHandlerT_N<MSG, ArgTypes...>::Handler& handler)
-//    {
-//        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_N<MSG, ArgTypes...>(MAKE_MSG_TYPE(MSG::TYPE1, MSG::TYPE2), MSG::descriptor()->full_name(), handler));
-//        bindHandlerPtr(h);
-//        return *this;
-//    }
-//
-//    template <typename MSG>
-//    ProtobufMsgDispatcherByID2<ArgTypes...>& on_void(const typename ProtobufMsgHandlerT_Void<MSG, ArgTypes...>::Handler& handler)
-//    {
-//        ProtobufMsgHandlerPtr h(new ProtobufMsgHandlerT_Void<MSG, ArgTypes...>(MAKE_MSG_TYPE(MSG::TYPE1, MSG::TYPE2), MSG::descriptor()->full_name(), handler));
-//        bindHandlerPtr(h);
-//        return *this;
-//    }
-//
-//    //
-//    // 消息分发
-//    //
-//    bool dispatch(const MessageHeader* msgheader,  ArgTypes... args)
-//    {
-//        if (msgheader->type_is_name > 0)
-//            return false;
-//
-//        uint8* msg_proto = (uint8*)msgheader + sizeof(MessageHeader);
-//
-//        auto it = handlers_.find(msgheader->type);
-//        if (it != handlers_.end())
-//        {
-//            ProtobufMsgHandlerBase::MessagePtr proto(it->second->newMessage());
-//            if (proto && proto->ParseFromArray(msg_proto, msgheader->size))
-//            {
-//                it->second->process(proto, args...);
-//                return true;
-//            }
-//        }
-//
-//        return false;
-//    }
-//
-//protected:
-//    bool bindHandlerPtr(ProtobufMsgHandlerPtr handler)
-//    {
-//        if (!handler) return false;
-//
-//        if (handlers_.find(handler->msgtype()) != handlers_.end()) {
-//            handler->onBindFailed(__PRETTY_FUNCTION__);
-//            return false;
-//        }
-//
-//        handlers_.insert(std::make_pair(handler->msgtype(), handler));
-//        return true;
-//    }
-//
-//private:
-//    typedef std::unordered_map<uint16, ProtobufMsgHandlerPtr> ProtobufMsgHandlerMap;
-//
-//    ProtobufMsgHandlerMap handlers_;
-//};
 
 
 #endif //TINYWORLD_MESSAGE_DISPATCHER_H
