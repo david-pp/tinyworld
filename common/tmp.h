@@ -1,3 +1,24 @@
+//
+// Created by wangdawei on 2017/4/13.
+//
+
+#ifndef TINYWORLD_TMP_H
+#define TINYWORLD_TMP_H
+
+#include "tinyworld.h"
+
+#include <map>
+#include <cstring>
+#include <unordered_map>
+#include <tuple>
+#include <iostream>
+#include <memory>
+#include <functional>
+#include <exception>
+#include <google/protobuf/message.h>
+
+#include "message.h"
+#include "message_helper.h"
 // TODO: delete following after refactor
 
 
@@ -342,3 +363,6 @@ private:
 ////    - MSG::TYPE2 为次消息编号
 ////
 /////////////////////////////////////////////////////////////
+
+
+#endif //TINYWORLD_TMP_H

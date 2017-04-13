@@ -1,278 +1,158 @@
 #include <iostream>
 #include "message_dispatcher.h"
-#include "test_msg.pb.h"
-
-
-struct Object {
-    int v = 314;
-
-    void doMsg(const Cmd::LoginRequest &msg) {
-        std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-        std::cout << msg.DebugString() << std::endl;
-        std::cout << "v: " << v << std::endl;
-    }
-};
-
-void test_byname() {
-    std::cout << "name:" << Cmd::LoginRequest::descriptor()->name() << std::endl;
-    std::cout << "fullname:" << Cmd::LoginRequest::descriptor()->full_name() << std::endl;
-
-    // 准备消息
-    Cmd::LoginRequest send;
-    send.set_id(12345);
-    send.set_password("passwd");
-    send.set_type(20);
-    std::cout << send.DebugString() << std::endl;
-
-
-    // 打包
-    std::string msgbuf;
-    ProtobufMsgDispatcherByName<>::pack(msgbuf, send);
-
-    MessageHeader *header = (MessageHeader *) msgbuf.data();
-    std::cout << header->dumphex() << std::endl;
-
-    std::cout << "-----------------" << std::endl;
-
-    Object obj;
-
-    try {
-        // 测试消息分发-无参数/无返回值
-        {
-            ProtobufMsgDispatcherByName<int, Object *> d;
-            d.on_void<Cmd::LoginRequest>([]() {
-                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << "args: void" << std::endl;
-            });
-
-            d.dispatch(header, 100, &obj);
-        }
-
-        // 测试消息分发-无参数/有返回值
-        {
-            ProtobufMsgDispatcherByName<int, Object *> d;
-            d.on_void<Cmd::LoginRequest, Cmd::LoginReply>([]() {
-                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << "args: void" << std::endl;
-
-                Cmd::LoginReply reply;
-                reply.set_info("good!");
-                return reply;
-            });
-
-            d.on<Cmd::LoginReply>([](const Cmd::LoginReply &msg, int a1, Object *a2) {
-                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << msg.DebugString() << std::endl;
-                std::cout << "arg1:" << a1 << std::endl;
-                std::cout << "arg2:" << a2->v << std::endl;
-            });
-
-            auto reply = d.dispatch(header, 100, &obj);
-            if (reply) {
-                d.dispatch((MessageHeader *) reply->data(), 200, &obj);
-            }
-        }
-
-        // 测试消息分发-多参数
-        {
-            ProtobufMsgDispatcherByName<int, Object *> d;
-
-            d.on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
-                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << msg.DebugString() << std::endl;
-                std::cout << "arg1:" << a1 << std::endl;
-                std::cout << "arg2:" << a2->v << std::endl;
-
-                Cmd::LoginReply reply;
-                reply.set_info("cool!");
-                return reply;
-            });
-
-            d.on<Cmd::LoginReply>([](const Cmd::LoginReply &msg, int a1, Object *a2) {
-                std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << msg.DebugString() << std::endl;
-                std::cout << "arg1:" << a1 << std::endl;
-                std::cout << "arg2:" << a2->v << std::endl;
-            });
-
-            auto replybin = d.dispatch(header, 100, &obj);
-            if (replybin) {
-                d.dispatch((MessageHeader *) replybin->data(), 200, &obj);
-            }
-        }
-
-        // 测试消息分发-bind
-        {
-            ProtobufMsgDispatcherByName<> d;
-            d.on<Cmd::LoginRequest>(std::bind(&Object::doMsg, obj, std::placeholders::_1));
-
-            d.dispatch(header);
-        }
-    }
-    catch (std::exception &err) {
-        std::cout << "[dispatche] " << err.what() << std::endl;
-    }
-}
-
-
-//void test_byid1()
-//{
-//    // 准备消息
-//    Cmd::LoginRequest send;
-//    send.set_id(12345);
-//    send.set_password("passwd");
-//    send.set_type(20);
-//    std::cout << send.DebugString() << std::endl;
-//
-//    // 打包
-//    std::string msgbuf;
-//    ProtobufMsgHandlerBase::packByID1(msgbuf, send);
-//
-//    MessageHeader* header = (MessageHeader*)msgbuf.data();
-//    std::cout << header->dumphex() << std::endl;
-//
-//    std::cout << "-----------------" << std::endl;
-//
-//    Object obj;
-//
-//    // 测试消息分发-无参数
-//    {
-//        ProtobufMsgDispatcherByID1<int, Object *> d;
-//        d.on_void<Cmd::LoginRequest>([]() {
-//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-//            std::cout << "args: void" << std::endl;
-//        });
-//
-//        d.dispatch(header, 100, &obj);
-//    }
-//
-//    // 测试消息分发-多参数
-//    {
-//        ProtobufMsgDispatcherByID1<int, Object *> d;
-//        d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
-//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-//            std::cout << msg.DebugString() << std::endl;
-//            std::cout << "arg1:" << a1 << std::endl;
-//            std::cout << "arg2:" << a2->v << std::endl;
-//        });
-//
-//        d.dispatch(header, 100, &obj);
-//    }
-//
-//    // 测试消息分发-bind
-//    {
-//        ProtobufMsgDispatcherByID1<> d;
-//        d.on<Cmd::LoginRequest>(std::bind(&Object::doMsg, obj, std::placeholders::_1));
-//
-//        d.dispatch(header);
-//    }
-//}
-//
-//
-//void test_byid2()
-//{
-//    // 准备消息
-//    Cmd::LoginRequest send;
-//    send.set_id(12345);
-//    send.set_password("passwd");
-//    send.set_type(20);
-//    std::cout << send.DebugString() << std::endl;
-//
-//    // 打包
-//    std::string msgbuf;
-//    ProtobufMsgHandlerBase::packByID2(msgbuf, send);
-//
-//    MessageHeader* header = (MessageHeader*)msgbuf.data();
-//    std::cout << header->dumphex() << std::endl;
-//
-//    std::cout << "-----------------" << std::endl;
-//
-//    Object obj;
-//
-//    // 测试消息分发-无参数
-//    {
-//        ProtobufMsgDispatcherByID2<int, Object *> d;
-//        d.on_void<Cmd::LoginRequest>([]() {
-//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-//            std::cout << "args: void" << std::endl;
-//        });
-//
-//        d.dispatch(header, 100, &obj);
-//    }
-//
-//    // 测试消息分发-多参数
-//    {
-//        ProtobufMsgDispatcherByID2<int, Object *> d;
-//        d.on<Cmd::LoginRequest>([](const Cmd::LoginRequest &msg, int a1, Object *a2) {
-//            std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
-//            std::cout << msg.DebugString() << std::endl;
-//            std::cout << "arg1:" << a1 << std::endl;
-//            std::cout << "arg2:" << a2->v << std::endl;
-//        });
-//
-//        d.dispatch(header, 100, &obj);
-//    }
-//
-//    // 测试消息分发-bind
-//    {
-//        ProtobufMsgDispatcherByID2<> d;
-//        d.on<Cmd::LoginRequest>(std::bind(&Object::doMsg, obj, std::placeholders::_1));
-//
-//        d.dispatch(header);
-//    }
-//}
-
-
 #include "tinyserializer_proto.h"
 
-void test_1() {
-    std::cout << "--------" << __PRETTY_FUNCTION__ << std::endl;
+#include "test_msg.pb.h"
 
-    Cmd::LoginRequest send;
-    send.set_id(12345);
-    send.set_password("passwd");
-    send.set_type(20);
-    std::cout << send.ShortDebugString() << std::endl;
+//
+// 模拟客户端
+//
+template<typename MsgDispatcherT>
+struct Client {
 
+    // 模拟发消息
+    template<typename MsgT>
+    std::string sendCmd(const MsgT &msg) {
+        MessageBuffer buffer;
+        MsgDispatcherT::template write2Buffer(buffer, msg);
+        return buffer.str();
+    }
 
-    MessageBuffer msgbuf;
-    msgbuf.writeByName(send);
+    MsgDispatcherT dispatcher;
+};
 
-    hexdump(msgbuf.str());
+//
+// 模拟服务端
+//
+template<typename MsgDispatcherT>
+struct Server {
 
-    MessageNameDispatcher<> dispatcher;
-    dispatcher
+    MsgDispatcherT dispatcher;
+};
+
+//
+// 演示: 使用Proto做协议
+//
+//  方式1 - Proto的名字做类型(推荐)
+//  方式2 - 自定义类型编码(uint16)
+//  方式3 - 自定义主次类型比那么(uint8, uint8)
+//
+//          ---- Cmd::LoginRequest -->
+// Client-{                           }-Server
+//          <--- Cmd::LoginReply  ----
+//
+void test_proto_by_name() {
+    std::cout << "\n--------" << __PRETTY_FUNCTION__ << std::endl;
+
+    // Client: s初始化
+    Client<MessageNameDispatcher<>> client;
+    client.dispatcher
+            .on<Cmd::LoginReply>([](const Cmd::LoginReply &msg) {
+                std::cout << "Client-\t" << msg.ShortDebugString() << std::endl;
+            });
+
+    // Client: 创建消息、发送消息
+    Cmd::LoginRequest cmd;
+    cmd.set_id(12345);
+    cmd.set_password("passwd");
+    cmd.set_type(20);
+    std::string data = client.sendCmd(cmd);
+    std::cout << "Client-\tsendCmd: " << cmd.ShortDebugString() << std::endl;
+
+    // Server: 初始化
+    Server<MessageNameDispatcher<>> server;
+    server.dispatcher
             .on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &request) {
-                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << request.DebugString() << std::endl;
+                std::cout << "Server-\t" << request.ShortDebugString() << std::endl;
                 Cmd::LoginReply reply;
                 reply.set_info("hello");
                 return reply;
-            })
-            .on<Cmd::LoginReply>([](const Cmd::LoginReply &msg) {
-                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << msg.DebugString() << std::endl;
             });
 
-    MessageBufferPtr reply = dispatcher.dispatch(msgbuf.str());
+    // Server: 收到消息进行分发
+    MessageBufferPtr reply = server.dispatcher.dispatch(data);
     if (reply) {
-        if (!dispatcher.dispatch(reply->str())) {
-            std::cout << "---- over" << std::endl;
-        }
+        // 有返回则返回给客户端，最终执行Client的消息分发
+        client.dispatcher.dispatch(reply->str());
     }
 }
 
+//
+// 自定义编号
+//
+DECLARE_MESSAGE_BY_TYPE(Cmd::LoginRequest, 1);
+
+DECLARE_MESSAGE_BY_TYPE(Cmd::LoginReply, 2);
+
+//DECLARE_MESSAGE_BY_TYPE2(Cmd::LoginRequest, 1, 1);
+//DECLARE_MESSAGE_BY_TYPE2(Cmd::LoginReply, 1, 2);
+
+void test_proto_by_type() {
+    std::cout << "\n--------" << __PRETTY_FUNCTION__ << std::endl;
+
+    // Client: 初始化
+    Client<MessageDispatcher<>> client;
+    client.dispatcher
+            .on<Cmd::LoginReply>([](const Cmd::LoginReply &msg) {
+                std::cout << "Client-\t" << msg.ShortDebugString() << std::endl;
+            });
+
+    // Client: 创建消息、发送消息
+    Cmd::LoginRequest cmd;
+    cmd.set_id(12345);
+    cmd.set_password("passwd");
+    cmd.set_type(20);
+    std::string data = client.sendCmd(cmd);
+    std::cout << "Client-\tsendCmd: " << cmd.ShortDebugString() << std::endl;
+
+
+    // Server: 初始化
+    Server<MessageDispatcher<>> server;
+    server.dispatcher
+            .on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &request) {
+                std::cout << "Server-\t" << request.ShortDebugString() << std::endl;
+                Cmd::LoginReply reply;
+                reply.set_info("hello");
+                return reply;
+            });
+
+    // Server: 收到消息进行分发
+    MessageBufferPtr reply = server.dispatcher.dispatch(data);
+    if (reply) {
+        // 有返回则返回给客户端，最终执行Client的消息分发
+        client.dispatcher.dispatch(reply->str());
+    }
+}
+
+
+//
+// 演示: 使用用户自定义类型做协议
+//
+//  方式1 - 自定义名字做类型
+//  方式2 - 自定义类型编码(uint16)
+//  方式3 - 自定义主次类型比那么(uint8, uint8)
+//
+//          ---- LoginReq -->
+// Client-{                  }-Server
+//          <--- LoginRep ---
+//
+
+// 自定义类型: Request
 struct LoginReq {
+    int type = 0;
+    std::string password = "";
 
-    int type = 1024;
-    std::string password = "123467";
+    // 侵入式实现协议名/编码的约定(一般情况仅需要一种即可)
+    static std::string msgName() { return "request"; }
 
+    static uint16_t msgType() { return 1; }
 
+    // 侵入式实现ProtoSerializer的约定
     std::string serialize() const {
         Cmd::LoginRequest proto;
         proto.set_id(12345);
-        proto.set_password("passwd");
-        proto.set_type(20);
+        proto.set_password(password);
+        proto.set_type(type);
         return proto.SerializeAsString();
     }
 
@@ -291,46 +171,14 @@ struct LoginReq {
     }
 };
 
-//template <>
-//struct MessageName<LoginReq> {
-//    static std::string value() {
-//        return "req";
-//    }
-//};
-
-DECLARE_MESSAGE(LoginReq);
-
-namespace xx {
-    struct Test {
-    };
-}
-
-DECLARE_MESSAGE_BY_NAME(xx::Test, "xx-Test");
-
-
+// 自定义类型: Reply
 struct LoginRep {
+    std::string info;
+    std::vector<uint32_t> values;
 
-    static std::string msgName() { return "rep"; }
-
-    std::string info = "hello";
-
-    std::vector<uint32_t> values = {1, 2, 3, 4, 5, 6};
-
-    std::string serialize() const {
-        ProtoArchiver ar;
-        ar << info;
-        ar << values;
-        return ar.SerializeAsString();
-    }
-
-    bool deserialize(const std::string &data) {
-        ProtoArchiver ar;
-        if (ar.ParseFromString(data)) {
-            ar >> info;
-            ar >> values;
-            return true;
-        }
-        return false;
+    void init() {
+        info = "hello";
+        values = {1, 2, 3, 4, 5, 6};
     }
 
     void dump() const {
@@ -341,92 +189,184 @@ struct LoginRep {
     }
 };
 
-void test_2() {
-    std::cout << "--------" << __PRETTY_FUNCTION__ << std::endl;
+//
+// 非侵入式实现ProtoSerializer的约定
+//
+template<>
+struct ProtoSerializer<LoginRep> {
+    std::string serialize(const LoginRep &msg) const {
+        ProtoArchiver ar;
+        ar << msg.info;
+        ar << msg.values;
+        return ar.SerializeAsString();
+    }
 
-    LoginReq send;
+    bool deserialize(LoginRep &msg, const std::string &data) const {
+        ProtoArchiver ar;
+        if (ar.ParseFromString(data)) {
+            ar >> msg.info;
+            ar >> msg.values;
+            return true;
+        }
+        return false;
+    }
+};
 
-    MessageBuffer msgbuf;
-    msgbuf.writeByName(send);
+//
+// 非侵入式指定对应的协议名/编号
+//
+DECLARE_MESSAGE(LoginRep);
+//DECLARE_MESSAGE_BY_NAME(LoginReq, "reply");
 
-    hexdump(msgbuf.str());
+//template <>
+//struct MessageName<LoginReq> {
+//    static std::string value() {
+//        return "req";
+//    }
+//};
 
-    MessageNameDispatcher<> dispatcher;
-    dispatcher
-            .on<LoginReq, LoginRep>([](const LoginReq &request) {
-                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
-                request.dump();
-                LoginRep reply;
-                reply.info = "hello !!";
-                return reply;
-            })
+DECLARE_MESSAGE_BY_TYPE(LoginRep, 2);
+//DECLARE_MESSAGE_BY_TYPE2(LoginRep, 1, 2);
+
+
+void test_userdefine_by_name() {
+    std::cout << "\n--------" << __PRETTY_FUNCTION__ << std::endl;
+
+    // Client: 初始化
+    Client<MessageNameDispatcher<>> client;
+    client.dispatcher
             .on<LoginRep>([](const LoginRep &msg) {
-                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
+                std::cout << "Client-\t";
                 msg.dump();
             });
 
-    MessageBufferPtr reply = dispatcher.dispatch(msgbuf.str());
-    if (reply) {
-        if (!dispatcher.dispatch(reply->str())) {
-            std::cout << "---- over" << std::endl;
-        }
-    }
-}
+    // Client: 创建消息、发送消息
+    LoginReq cmd;
+    cmd.type = 1024;
+    cmd.password = "123456";
+    std::string data = client.sendCmd(cmd);
+    std::cout << "Client-\tsendCmd: ";
+    cmd.dump();
 
-//DECLARE_MESSAGE_BY_TYPE(Cmd::LoginRequest, 1);
-//DECLARE_MESSAGE_BY_TYPE(Cmd::LoginReply, 2);
+    // Server: 初始化
+    Server<MessageNameDispatcher<>> server;
+    server.dispatcher
+            .on<LoginReq, LoginRep>([](const LoginReq &request) {
+                std::cout << "Server-\t";
+                request.dump();
 
-DECLARE_MESSAGE_BY_TYPE2(Cmd::LoginRequest, 1, 1);
-DECLARE_MESSAGE_BY_TYPE2(Cmd::LoginReply, 1, 2);
-
-void test_3() {
-    std::cout << "--------" << __PRETTY_FUNCTION__ << std::endl;
-
-    Cmd::LoginRequest send;
-    send.set_id(12345);
-    send.set_password("passwd");
-    send.set_type(20);
-    std::cout << send.ShortDebugString() << std::endl;
-
-
-    MessageBuffer msgbuf;
-    msgbuf.writeByType(send);
-
-    hexdump(msgbuf.str());
-
-    MessageDispatcher<> dispatcher;
-    dispatcher
-            .on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &request) {
-                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << request.DebugString() << std::endl;
-                Cmd::LoginReply reply;
-                reply.set_info("hello");
+                LoginRep reply;
+                reply.init();
                 return reply;
-            })
-            .on<Cmd::LoginReply>([](const Cmd::LoginReply &msg) {
-                std::cout << "----" << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << msg.DebugString() << std::endl;
             });
 
-    try {
-        MessageBufferPtr reply = dispatcher.dispatch(msgbuf.str());
-        if (reply) {
-            if (!dispatcher.dispatch(reply->str())) {
-                std::cout << "---- over" << std::endl;
-            }
-        }
-    } catch (std::exception &e) {
-        std::cout << e.what() << std::endl;
+    // Server: 收到消息进行分发
+    MessageBufferPtr reply = server.dispatcher.dispatch(data);
+    if (reply) {
+        // 有返回则返回给客户端，最终执行Client的消息分发
+        client.dispatcher.dispatch(reply->str());
     }
 }
 
+void test_userdefine_by_type() {
+    std::cout << "\n--------" << __PRETTY_FUNCTION__ << std::endl;
+
+    // Client: 初始化
+    Client<MessageDispatcher<>> client;
+    client.dispatcher
+            .on<LoginRep>([](const LoginRep &msg) {
+                std::cout << "Client-\t";
+                msg.dump();
+            });
+
+
+    // Client: 创建消息、发送消息
+    LoginReq cmd;
+    cmd.type = 1024;
+    cmd.password = "123456";
+    std::string data = client.sendCmd(cmd);
+    std::cout << "Client-\tsendCmd: ";
+    cmd.dump();
+
+    // 服务端初始化
+    Server<MessageDispatcher<>> server;
+    server.dispatcher
+            .on<LoginReq, LoginRep>([](const LoginReq &request) {
+                std::cout << "Server-\t";
+                request.dump();
+
+                LoginRep reply;
+                reply.init();
+                return reply;
+            });
+
+    // Server: 收到消息进行分发
+    MessageBufferPtr reply = server.dispatcher.dispatch(data);
+    if (reply) {
+        // 有返回则返回给客户端，最终执行Client的消息分发
+        client.dispatcher.dispatch(reply->str());
+    }
+}
+
+//
+// 演示：使用bind expression、dispatch传入其他参数
+//
+
+// 玩家对象
+struct Player {
+    int v = 314;
+};
+
+// 登录模块
+struct LoginModule {
+    static LoginModule &instance() {
+        static LoginModule login;
+        return login;
+    }
+
+    void doLogin(const Cmd::LoginRequest &msg, Player *player) {
+        std::cout << "-- " << __PRETTY_FUNCTION__ << std::endl;
+        std::cout << msg.DebugString() << std::endl;
+        std::cout << "v: " << player->v << std::endl;
+    }
+};
+
+void test_expansion() {
+    std::cout << "\n--------" << __PRETTY_FUNCTION__ << std::endl;
+
+    // Client: 初始化
+    Client<MessageNameDispatcher<>> client;
+
+    // Client: 创建消息、发送消息
+    Cmd::LoginRequest cmd;
+    cmd.set_id(12345);
+    cmd.set_password("passwd");
+    cmd.set_type(20);
+    std::string data = client.sendCmd(cmd);
+    std::cout << "Client-\tsendCmd: " << cmd.ShortDebugString() << std::endl;
+
+
+    // Server: 初始化
+    Server<MessageNameDispatcher<Player *>> server;
+    server.dispatcher
+            .on<Cmd::LoginRequest>(
+                    std::bind(&LoginModule::doLogin,
+                              LoginModule::instance(),
+                              std::placeholders::_1, std::placeholders::_2));
+
+    // Server: 收到消息进行分发(需要指定一个角色指针)
+    Player *player = new Player;
+    MessageBufferPtr reply = server.dispatcher.dispatch(data, player);
+    if (reply) {
+        // 有返回则返回给客户端，最终执行Client的消息分发
+        client.dispatcher.dispatch(reply->str());
+    }
+}
 
 int main(int argc, const char *argv[]) {
-    test_1();
-    test_2();
-    test_3();
-//    test_byname();
-//    test_byid1();
-//    test_byid2();
-    std::cout << MessageName<xx::Test>::value() << std::endl;
+    test_proto_by_name();
+    test_proto_by_type();
+    test_userdefine_by_name();
+    test_userdefine_by_type();
+    test_expansion();
 }
