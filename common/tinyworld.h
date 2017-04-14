@@ -21,24 +21,13 @@
 #ifndef _COMMON_TINTYWORLD_H
 #define _COMMON_TINTYWORLD_H
 
+#include <functional>
+#include <iomanip>
+#include <iostream>
+
 
 // TODO: using c++11 xxx_t
 typedef unsigned int uint;
-
-#ifdef _MSC_VER
-
-typedef __int8  int8;
-typedef __int16 int16;
-typedef __int32 int32;
-typedef __int64 int64;
-
-typedef unsigned __int8  uint8;
-typedef unsigned __int16 uint16;
-typedef unsigned __int32 uint32;
-typedef unsigned __int64 uint64;
-
-#else
-
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
@@ -49,14 +38,10 @@ typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
-#endif
-
 #define TINY_NAMESPACE_BEGIN // namespace tiny {
 #define TINY_NAMESPACE_END   // }
 
 
-#include <functional>
-#include <iomanip>
 
 //
 // 利用构造函数执行一些初始化代码的技巧
@@ -69,7 +54,7 @@ struct RunOnceHelper {
 
 #define RUN_ONCE(tagname) \
         void reg_func_##tagname(); \
-        Register reg_obj_##structname(reg_func_##structname); \
+        RunOnceHelper reg_obj_##tagname(reg_func_##tagname); \
         void reg_func_##tagname()
 
 

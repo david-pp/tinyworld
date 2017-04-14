@@ -78,7 +78,7 @@ struct MessageNameImpl<MsgT, 1> {
 //
 template<typename MsgT>
 struct MessageTypeCode {
-    static uint16 value() {
+    static uint16_t value() {
         return MsgT::msgType();
     }
 };

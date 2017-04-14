@@ -1,5 +1,27 @@
+// Copyright (c) 2017 david++
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #ifndef TINYWORLD_TINYREFLECTION_H
 #define TINYWORLD_TINYREFLECTION_H
+
+#include "tinyworld.h"
 
 #include <iostream>
 #include <functional>
@@ -9,6 +31,8 @@
 #include <typeinfo>
 #include <type_traits>
 #include <boost/any.hpp>
+
+TINY_NAMESPACE_BEGIN
 
 template<typename T>
 class Property {
@@ -96,7 +120,7 @@ public:
 
     T *clone() { return new T; }
 
-    template<template <typename> class SerializerT/*=DynSerializer*/, typename PropType>
+    template<template<typename> class SerializerT/*=DynSerializer*/, typename PropType>
     Struct<T> &property(const std::string &name, PropType T::* prop, uint16_t id = 0) {
         if (!hasPropery(name)) {
             typename Property<T>::Ptr ptr(makePropery<T, SerializerT<PropType>>(name, id, std::mem_fn(prop)));
@@ -168,6 +192,7 @@ protected:
     uint16_t version_ = 0;
 };
 
+
 struct StructFactory {
     static StructFactory &instance() {
         static StructFactory instance_;
@@ -210,5 +235,7 @@ protected:
     Structs structs_by_typeid_;
     Structs structs_by_name_;
 };
+
+TINY_NAMESPACE_END
 
 #endif //TINYWORLD_TINYREFLECTION_H
