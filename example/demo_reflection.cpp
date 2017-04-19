@@ -54,7 +54,7 @@ RUN_ONCE(Player){
 }
 
 
-void test_1() {
+void demo_1() {
 
     Player p;
     auto reflection = StructFactory::instance().structByType<Player>();
@@ -86,5 +86,5 @@ void test_1() {
 }
 
 int main() {
-    test_1();
+    demo_1();
 }

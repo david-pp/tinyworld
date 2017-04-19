@@ -2,8 +2,8 @@
 #include "tinyserializer.h"
 #include "tinyserializer_proto.h"
 
-#include "player.pb.h"
-#include "test_msg.pb.h"
+#include "../test/player.pb.h"
+#include "../test/test_msg.pb.h"
 
 //
 // 类型定义
@@ -119,54 +119,54 @@ struct ProtoSerializer<Player> {
 
 
 void test_basic() {
-
-    std::cout << "--------" << __PRETTY_FUNCTION__ << std::endl;
-
-    {
-        uint32_t v1 = 1024;
-
-        std::string bin = serialize(v1);
-
-        uint32_t v2 = 0;
-        deserialize(v2, bin);
-
-        std::cout << v2 << std::endl;
-    }
-
-    {
-        Cmd::LoginRequest msg1;
-        msg1.set_id(2);
-        msg1.set_name("david");
-        msg1.set_password("12356676");
-        msg1.set_type(1024);
-
-        std::string bin = serialize(msg1);
-
-        Cmd::LoginRequest msg2;
-        deserialize(msg2, bin);
-        std::cout << msg2.ShortDebugString() << std::endl;
-    }
-
-    {
-        Cmd::LoginRequest msg1;
-        msg1.set_id(2);
-        msg1.set_name("david");
-        msg1.set_password("12356676");
-        msg1.set_type(1024);
-
-        std::vector<Cmd::LoginRequest> messages = {
-                msg1, msg1, msg1
-        };
-
-        std::string data = serialize(messages);
-
-        std::vector<Cmd::LoginRequest> m2;
-        deserialize(m2, data);
-
-        for (auto &v : m2) {
-            std::cout << v.ShortDebugString() << std::endl;
-        }
-    }
+//
+//    std::cout << "--------" << __PRETTY_FUNCTION__ << std::endl;
+//
+//    {
+//        uint32_t v1 = 1024;
+//
+//        std::string bin = serialize(v1);
+//
+//        uint32_t v2 = 0;
+//        deserialize(v2, bin);
+//
+//        std::cout << v2 << std::endl;
+//    }
+//
+//    {
+//        Cmd::LoginRequest msg1;
+//        msg1.set_id(2);
+//        msg1.set_name("david");
+//        msg1.set_password("12356676");
+//        msg1.set_type(1024);
+//
+//        std::string bin = serialize(msg1);
+//
+//        Cmd::LoginRequest msg2;
+//        deserialize(msg2, bin);
+//        std::cout << msg2.ShortDebugString() << std::endl;
+//    }
+//
+//    {
+//        Cmd::LoginRequest msg1;
+//        msg1.set_id(2);
+//        msg1.set_name("david");
+//        msg1.set_password("12356676");
+//        msg1.set_type(1024);
+//
+//        std::vector<Cmd::LoginRequest> messages = {
+//                msg1, msg1, msg1
+//        };
+//
+//        std::string data = serialize(messages);
+//
+//        std::vector<Cmd::LoginRequest> m2;
+//        deserialize(m2, data);
+//
+//        for (auto &v : m2) {
+//            std::cout << v.ShortDebugString() << std::endl;
+//        }
+//    }
 }
 
 void test_userdefined() {
