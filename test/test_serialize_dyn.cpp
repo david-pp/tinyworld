@@ -56,16 +56,67 @@ struct Player {
 RUN_ONCE(Player) {
 
     StructFactory::instance().declare<Weapon>("Weapon")
-            .property("type", &Weapon::type, 1)
-            .property("name", &Weapon::name, 2);
+            .property<ProtoDynSerializer>("type", &Weapon::type, 1)
+            .property<ProtoDynSerializer>("name", &Weapon::name, 2);
 
     StructFactory::instance().declare<Player>("Player")
-            .property("id", &Player::id, 1)
-            .property("name", &Player::name, 2)
-            .property("weapon", &Player::weapon, 3)
-            .property("weapons_map", &Player::weapons_map, 4);
+            .property<ProtoDynSerializer>("id", &Player::id, 1)
+            .property<ProtoDynSerializer>("name", &Player::name, 2)
+            .property<ProtoDynSerializer>("weapon", &Player::weapon, 3)
+            .property<ProtoDynSerializer>("weapons_map", &Player::weapons_map, 4);
+}
+
+#define USE_STRUCT_FACTORY
+
+RUN_ONCE(PlayerSerial) {
+
+#ifdef USE_STRUCT_FACTORY
+    ProtoMappingFactory::instance()
+                    .mapping<Weapon>("WeaponDyn2Proto")
+                    .mapping<Player>("PlayerDyn2Proto");
+
+#else
+    ProtoMappingFactory::instance().declare<Weapon>("Weapon", "WeaponDyn3Proto")
+            .property<ProtoDynSerializer>("type", &Weapon::type, 1)
+            .property<ProtoDynSerializer>("name", &Weapon::name, 2);
+
+    ProtoMappingFactory::instance().declare<Player>("Player", "PlayerDyn3Proto")
+            .property<ProtoDynSerializer>("id", &Player::id, 1)
+            .property<ProtoDynSerializer>("name", &Player::name, 2)
+            .property<ProtoDynSerializer>("weapon", &Player::weapon, 3)
+            .property<ProtoDynSerializer>("weapons_map", &Player::weapons_map, 4);
+#endif
+}
+
+void test_2() {
+
+    std::cout << "----------" << __PRETTY_FUNCTION__ << "----\n\n";
+
+    std::string data;
+
+    {
+        Player p;
+        p.init();
+        data = serialize<ProtoDynSerializer>(p);
+        p.dump();
+    }
+
+    hexdump(data);
+
+    {
+        Player p;
+        if (deserialize<ProtoDynSerializer>(p, data))
+            p.dump();
+    }
 }
 
 int main() {
+    ProtoMappingFactory::instance().createAllProtoDescriptor();
+    ProtoMappingFactory::instance().createAllProtoDefine();
 
+    try {
+        test_2();
+    } catch (const std::exception &e) {
+        std::cout << e.what() << std::endl;
+    }
 }

@@ -16,7 +16,7 @@ struct Player {
 
     std::vector<int> vec = {21, 22 , 23, 24, 25};
 
-    std::vector<Mem> vecxxx;
+//    std::vector<Mem> vecxxx;
 //    std::vector<std::map<Int ,Mem>> aaa;
 
     std::vector<std::string> vec2 = {"david", "LL", "JJ"};
@@ -69,46 +69,6 @@ struct Register {
 
 Register reg__;
 
-//
-// TinyArchiver  ar;
-// TextArchiver  ar;
-// JsonArchiver  ar;
-// XMLArchiver   ar;
-// ProtoArchiver ar;
-//
-// Player p;
-//
-// ar << p << p << p;
-// ar >> p >> p >> p;
-//
-//
-// tiny::serialize<TinySerializer>(p)
-// tiny::deserialize<TinySerializer>(p, bin);
-//
-// TinyArchiver ar;
-//
-
-void test_serializer() {
-    Player p;
-    p.id = 1024;
-    p.name = "david wang";
-    p.score = 100;
-
-    std::string bin = tiny::serialize(p);
-
-    p.dump();
-
-    p.id = 0;
-    p.salary = 0;
-    p.vec.clear();
-    p.vec2.clear();
-    p.vec3.clear();
-    tiny::deserialize(p, bin);
-
-    hexdump(bin);
-
-    p.dump();
-}
 
 
 //void test_r() {
@@ -135,5 +95,5 @@ void test_serializer() {
 
 int main() {
 //    test_r();
-    test_serializer();
+//    test_serializer();
 }

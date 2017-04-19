@@ -37,6 +37,9 @@ TINY_NAMESPACE_BEGIN
 template <typename T>
 class ProtoSerializer;
 
+template <typename T>
+class ProtoDynSerializer;
+
 //
 // 序列化 vs 反序列化
 //

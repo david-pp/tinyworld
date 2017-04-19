@@ -42,6 +42,9 @@ class ProtoMapping;
 class ProtoMappingFactory;
 
 
+//
+// C++ Struct -> Proto Mapping base class
+//
 class ProtoMappingBase {
 public:
     using DescriptorPool = google::protobuf::DescriptorPool;
@@ -49,12 +52,12 @@ public:
     using FileDescriptorProto = google::protobuf::FileDescriptorProto;
 
     //
-    // 构造Message的描述符
+    // Create Mapping Protobuf Message Descriptor
     //
-    virtual bool createProto() = 0;
+    virtual bool createProtoDescriptor() = 0;
 
     //
-    // Message的proto定义
+    // Get Protobuf Message Proto Define
     //
     std::string protoDefine() {
         if (!descriptor_pool_) return "";
@@ -65,7 +68,7 @@ public:
     }
 
     //
-    // 关联的描述符工厂和消息工厂
+    // Related descriptor pool and message factory
     //
     DescriptorPool *descriptorPool() { return descriptor_pool_; }
 
@@ -88,10 +91,17 @@ protected:
     std::string proto_name_;
 };
 
+//
+// C++ Struct -> Proto Mapping
+//
 template<typename T>
 class ProtoMapping : public ProtoMappingBase {
 public:
-    ProtoMapping(Struct <T> *reflection,
+    // reflection - NULL  : create new
+    //            -  !    : from one StructFactory instance
+    // cpp_name   - c++ struct's name
+    // proto_name - protobuf message's name
+    ProtoMapping(Struct<T> *reflection,
                  const std::string &cpp_name,
                  const std::string &proto_name = "") {
         cpp_name_ = cpp_name;
@@ -115,13 +125,8 @@ public:
             delete struct_;
     }
 
-    template<template<typename> class SerializerT/*=DynSerializer*/, typename PropType>
-    ProtoMapping<T> &property(const std::string &name, PropType T::* prop, uint16_t number) {
-        struct_->template property<SerializerT, PropType>(name, prop, number);
-        return *this;
-    }
-
-    bool createProto() final {
+    // Mapping C++ struct to Protobuf Message
+    bool createProtoDescriptor() final {
         using namespace google::protobuf;
 
         if (!descriptor_pool_) return false;
@@ -133,30 +138,34 @@ public:
         descriptor->set_name(proto_name_);
 
         for (auto prop : struct_->propertyIterator()) {
-            if (typeid(uint32_t) == prop->type()) {
-                FieldDescriptorProto *fd = descriptor->add_field();
-                fd->set_name(prop->name());
-                fd->set_type(FieldDescriptorProto::TYPE_UINT32);
-                fd->set_number(prop->number());
-                fd->set_label(FieldDescriptorProto::LABEL_OPTIONAL);
-            } else {
-                FieldDescriptorProto *fd = descriptor->add_field();
-                fd->set_name(prop->name());
-                fd->set_type(FieldDescriptorProto::TYPE_BYTES);
-                fd->set_number(prop->number());
-                fd->set_label(FieldDescriptorProto::LABEL_OPTIONAL);
-            }
+            FieldDescriptorProto *fd = descriptor->add_field();
+            fd->set_name(prop->name());
+            fd->set_type(FieldDescriptorProto::TYPE_BYTES);
+            fd->set_number(prop->number());
+            fd->set_label(FieldDescriptorProto::LABEL_OPTIONAL);
         }
 
         descriptor_pool_->BuildFile(file_proto);
         return true;
     }
 
+
+    // Only valid when struct_ is created by new
+    template<template<typename> class SerializerT = DummySerializer, typename PropType>
+    ProtoMapping<T> &property(const std::string &name, PropType T::* prop, uint16_t number) {
+        struct_->template property<SerializerT, PropType>(name, prop, number);
+        return *this;
+    }
+
 public:
-    Struct <T> *struct_;
+    Struct<T> *struct_;
     bool from_struct_factory_;
 };
 
+
+//
+// Factory
+//
 class ProtoMappingFactory {
 public:
     //
@@ -167,27 +176,23 @@ public:
         return instance_;
     }
 
-    ProtoMappingFactory() {
-    }
-
-
     //
-    // 自定义映射
+    // Declare by self
     //
     template<typename T>
     ProtoMapping<T> &declare(const std::string &cpp_name, const std::string &proto_name = "") {
-        return createProtoMapping<T>(nullptr, cpp_name, proto_name);
+        return createProtoDescriptorMapping<T>(nullptr, cpp_name, proto_name);
     }
 
     //
-    // 使用StructFactory定义映射
+    // Declare from StructFactory
     //
     template<typename T>
     ProtoMappingFactory &mapping(const std::string &proto_name = "",
                                  StructFactory &struct_factory = StructFactory::instance()) {
         auto reflection = struct_factory.structByType<T>();
         if (reflection) {
-            createProtoMapping<T>(reflection, reflection->name(), proto_name);
+            createProtoDescriptorMapping<T>(reflection, reflection->name(), proto_name);
         } else {
             std::cerr << "[ProtoMapping] mapping failed: reflection is not exist : " << __PRETTY_FUNCTION__
                       << std::endl;
@@ -195,6 +200,9 @@ public:
         return *this;
     }
 
+    //
+    // Get Mapping by Type/Name
+    //
     template<typename T>
     ProtoMapping<T> *mappingByType() {
         auto it = mappings_by_typeid_.find(typeid(T).name());
@@ -210,21 +218,27 @@ public:
         return NULL;
     }
 
+    //
+    // Create Protobuf Message Descriptors
+    //
     template<typename T>
-    bool createProtoByType() {
+    bool createProtoDescriptorByType() {
         ProtoMapping<T> *mapping = mappingByType<T>();
         if (mapping) {
-            return mapping->createProto();
+            return mapping->createProtoDescriptor();
         }
     }
 
-    void createAllProto() {
+    void createAllProtoDescriptor() {
         for (auto v : this->mappings_by_order_) {
-            v->createProto();
+            v->createProtoDescriptor();
         }
     }
 
 
+    //
+    // Protobuf Message Defination
+    //
     template<typename T>
     std::string protoDefineByType() {
         ProtoMapping<T> *mapping = mappingByType<T>();
@@ -234,7 +248,7 @@ public:
         return "";
     }
 
-    void generateAllProtoDefine(std::ostream &os = std::cout) {
+    void createAllProtoDefine(std::ostream &os = std::cout) {
         for (auto v : this->mappings_by_order_) {
             os << "// " << v->cppName() << " -> " << v->protoName() << std::endl;
             os << v->protoDefine();
@@ -244,9 +258,9 @@ public:
 
 protected:
     template<typename T>
-    ProtoMapping<T> &createProtoMapping(Struct <T> *reflection,
-                                        const std::string &cpp_name,
-                                        const std::string &proto_name) {
+    ProtoMapping<T> &createProtoDescriptorMapping(Struct<T> *reflection,
+                                                  const std::string &cpp_name,
+                                                  const std::string &proto_name) {
 
         auto mapping = std::make_shared<ProtoMapping<T>>(reflection, cpp_name, proto_name);
 

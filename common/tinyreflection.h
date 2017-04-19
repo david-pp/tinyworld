@@ -34,35 +34,58 @@
 
 TINY_NAMESPACE_BEGIN
 
+
+//
+// Dummy Serializer, Do nothing
+//
+template<typename T>
+struct DummySerializer {
+    std::string serialize(const T &object) const { return ""; }
+
+    bool deserialize(T &object, const std::string &bin) const { return false; }
+};
+
+//
+// Base Property Reflection Class
+//
 template<typename T>
 class Property {
 public:
     typedef std::shared_ptr<Property> Ptr;
 
-    Property(const std::string &name, uint16_t id)
-            : name_(name), id_(id) {}
+    Property(const std::string &name, uint16_t number)
+            : name_(name), number_(number) {}
 
     const std::string &name() { return name_; }
 
-    uint16_t number() { return id_; }
+    uint16_t number() { return number_; }
 
 public:
+    //
+    // Getter & Setter
+    //
     virtual const std::type_info &type() = 0;
 
     virtual boost::any get(const T &) = 0;
 
     virtual void set(T &, boost::any &) = 0;
 
+    //
+    // Serialization
+    //
     virtual std::string serialize(const T &) = 0;
 
     virtual bool deserialize(T &object, const std::string &bin) = 0;
 
 protected:
     std::string name_;
-    uint16_t id_;
+    uint16_t number_;
 };
 
 
+//
+// Concrete Property Reflection
+//
 template<typename T, typename MemFn, typename SerializerT>
 class Property_T : public Property<T> {
 public:
@@ -85,11 +108,14 @@ public:
     }
 
     std::string serialize(const T &obj) final {
-        return SerializerT::serialize(fn_(obj));
+        SerializerT serializer;
+        return serializer.serialize(fn_(obj));
     }
 
-    bool deserialize(T &obj, const std::string &bin) final {
-        return SerializerT::deserialize(fn_(obj), bin);
+    bool deserialize(T &obj, const std::string &data) final {
+//        std::cout << __PRETTY_FUNCTION__ << std::endl;
+        SerializerT serializer;
+        return serializer.deserialize(fn_(obj), data);
     }
 
 protected:
@@ -102,16 +128,19 @@ Property_T<T, MemFn, SerializerT> *makePropery(const std::string &name, uint16_t
 }
 
 
+//
+// Structure Reflection
+//
 struct StructBase {
-    virtual void create() {}
 };
 
 template<typename T>
 struct Struct : public StructBase {
 public:
-    typedef std::vector<typename Property<T>::Ptr> PropertyContainer;
-    typedef std::unordered_map<std::string, typename Property<T>::Ptr> PropertyMap;
-    typedef std::unordered_map<uint16_t, typename Property<T>::Ptr> PropertyMapByID;
+    typedef typename Property<T>::Ptr PropertyPtr;
+    typedef std::vector<PropertyPtr> PropertyContainer;
+    typedef std::unordered_map<std::string, PropertyPtr> PropertyMap;
+    typedef std::unordered_map<uint16_t, PropertyPtr> PropertyMapByID;
 
     Struct(const std::string &name, uint16_t version = 0)
             : name_(name), version_(version) {}
@@ -120,7 +149,7 @@ public:
 
     T *clone() { return new T; }
 
-    template<template<typename> class SerializerT/*=DynSerializer*/, typename PropType>
+    template<template<typename> class SerializerT = DummySerializer, typename PropType>
     Struct<T> &property(const std::string &name, PropType T::* prop, uint16_t id = 0) {
         if (!hasPropery(name)) {
             typename Property<T>::Ptr ptr(makePropery<T, SerializerT<PropType>>(name, id, std::mem_fn(prop)));
