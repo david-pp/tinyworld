@@ -66,14 +66,38 @@ RUN_ONCE(Player) {
             .property<ProtoDynSerializer>("weapons_map", &Player::weapons_map, 4);
 }
 
+template <template <typename> class SerializerT>
+struct GenericStructFactory : public StructFactory {
+    void reg() {
+        declare<Weapon>("Weapon")
+                .template property<SerializerT>("type", &Weapon::type, 1)
+                .template property<SerializerT>("name", &Weapon::name, 2);
+
+        declare<Player>("Player")
+                .template property<SerializerT>("id", &Player::id, 1)
+                .template property<SerializerT>("name", &Player::name, 2)
+                .template property<SerializerT>("weapon", &Player::weapon, 3)
+                .template property<SerializerT>("weapons_map", &Player::weapons_map, 4);
+    }
+};
+
+GenericStructFactory<ProtoDynSerializer> proto_dyn;
+
+
 #define USE_STRUCT_FACTORY
 
 RUN_ONCE(PlayerSerial) {
 
 #ifdef USE_STRUCT_FACTORY
+//    ProtoMappingFactory::instance()
+//                    .mapping<Weapon>("WeaponDyn2Proto")
+//                    .mapping<Player>("PlayerDyn2Proto");
+
+    proto_dyn.reg();
+
     ProtoMappingFactory::instance()
-                    .mapping<Weapon>("WeaponDyn2Proto")
-                    .mapping<Player>("PlayerDyn2Proto");
+            .mapping<Weapon>("", proto_dyn)
+            .mapping<Player>("", proto_dyn);
 
 #else
     ProtoMappingFactory::instance().declare<Weapon>("Weapon", "WeaponDyn3Proto")

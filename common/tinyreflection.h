@@ -36,7 +36,7 @@ TINY_NAMESPACE_BEGIN
 
 
 //
-// Dummy Serializer, Do nothing
+// Dummy Serializer, Do nothing, satisfy concept : Serializer
 //
 template<typename T>
 struct DummySerializer {

@@ -18,24 +18,43 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+//
+// Impliment the Serializer Concept by Protobuf
+//
+
 #ifndef TINYWORLD_TINYSERIALIZER_PROTO_H
 #define TINYWORLD_TINYSERIALIZER_PROTO_H
 
 #include <string>
+#include <vector>
+#include <list>
+#include <deque>
+#include <set>
+#include <map>
+#include <unordered_set>
+#include <unordered_map>
+
+#include "tinyworld.h"
 #include "archive.pb.h"
 
+//
+// T -> int
+//
 template<typename T>
 struct ProtoCase;
 
 template<typename T, uint32_t proto_case>
 struct ProtoSerializerImpl;
 
+//
+// Proto Serializer
+//
 template<typename T>
 struct ProtoSerializer : public ProtoSerializerImpl<T, ProtoCase<T>::value> {
 };
 
 //
-// 顺序必须要固定的归档器
+// Archiver : serialize and deserialize by the same order
 //
 class ProtoArchiver : public ArchiveProto {
 public:
@@ -63,16 +82,20 @@ private:
 };
 
 
+//
 // Proto Case
-
+//
 enum ProtoTypeEnum {
+    kProtoType_UserDefined,
+    kProtoType_Proto,
     kProtoType_Integer,
     kProtoType_Float,
     kProtoType_String,
-    kProtoType_Proto,
-    kProtoType_List,
+    kProtoType_Seq,
+    kProtoType_Set,
     kProtoType_Map,
-    kProtoType_UserDefined,
+    kProtoType_HashSet,
+    kProtoType_HashMap,
 };
 
 template<typename T>
@@ -80,28 +103,77 @@ struct ProtoCase : public std::integral_constant<ProtoTypeEnum,
         std::is_base_of<google::protobuf::Message, T>::value ? kProtoType_Proto : kProtoType_UserDefined> {
 };
 
-template<>
-struct ProtoCase<uint32_t> : public std::integral_constant<ProtoTypeEnum,
-        kProtoType_Integer> {
-};
+// Scalar Type Case
+#define PROTO_CASE_SCALAR(ScalarType, TypeEnum) \
+    template<> struct ProtoCase<ScalarType> : public std::integral_constant<ProtoTypeEnum, TypeEnum> {}
 
-template<>
-struct ProtoCase<std::string> : public std::integral_constant<ProtoTypeEnum,
-        kProtoType_String> {
-};
+// List Type Case
+#define PROTO_CASE_SEQ(SeqType) \
+    template<typename T, typename AllocT> struct ProtoCase<SeqType<T, AllocT> > \
+                 : public std::integral_constant<ProtoTypeEnum, kProtoType_Seq> {}
+// Set Type Case
+#define PROTO_CASE_SET(SetType) \
+    template<typename KeyT, typename CompareT, typename AllocT> struct ProtoCase<SetType<KeyT, CompareT, AllocT> > \
+                 : public std::integral_constant<ProtoTypeEnum, kProtoType_Set> {}
+#define PROTO_CASE_HASHSET(SetType) \
+    template<typename Key, typename Hash, typename KeyEqual, typename Allocator> \
+    struct ProtoCase<SetType<Key, Hash, KeyEqual, Allocator> > \
+                 : public std::integral_constant<ProtoTypeEnum, kProtoType_HashSet> {}
 
-template<typename T>
-struct ProtoCase<std::vector<T>> : public std::integral_constant<ProtoTypeEnum, kProtoType_List> {
-};
+// Map Type Case
+#define PROTO_CASE_MAP(MapType) \
+    template<typename KeyT, typename ValueT, typename AllocT> struct ProtoCase<MapType<KeyT, ValueT, AllocT> >  \
+                 : public std::integral_constant<ProtoTypeEnum, kProtoType_Map> {}
+#define PROTO_CASE_HASHMAP(MapType) \
+    template<typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator> \
+    struct ProtoCase<MapType<Key, T, Hash, KeyEqual, Allocator> > \
+                 : public std::integral_constant<ProtoTypeEnum, kProtoType_HashMap> {}
 
-template<typename KeyT, typename ValueT>
-struct ProtoCase<std::map<KeyT, ValueT>> : public std::integral_constant<ProtoTypeEnum, kProtoType_Map> {
-};
+// Integer
+PROTO_CASE_SCALAR(int8_t, kProtoType_Integer);
+PROTO_CASE_SCALAR(int16_t, kProtoType_Integer);
+PROTO_CASE_SCALAR(int32_t, kProtoType_Integer);
+PROTO_CASE_SCALAR(int64_t, kProtoType_Integer);
 
-// Impl
+PROTO_CASE_SCALAR(uint8_t, kProtoType_Integer);
+PROTO_CASE_SCALAR(uint16_t, kProtoType_Integer);
+PROTO_CASE_SCALAR(uint32_t, kProtoType_Integer);
+PROTO_CASE_SCALAR(uint64_t, kProtoType_Integer);
+
+// Boolean
+PROTO_CASE_SCALAR(bool, kProtoType_Integer);
+
+// Float
+PROTO_CASE_SCALAR(float, kProtoType_Float);
+PROTO_CASE_SCALAR(double, kProtoType_Float);
+
+// String
+PROTO_CASE_SCALAR(std::string, kProtoType_String);
+
+// Sequence Container:
+PROTO_CASE_SEQ(std::vector);
+PROTO_CASE_SEQ(std::list);
+PROTO_CASE_SEQ(std::deque);
+
+// Set
+PROTO_CASE_SET(std::set);
+PROTO_CASE_SET(std::multiset);
+PROTO_CASE_HASHSET(std::unordered_set);
+PROTO_CASE_HASHSET(std::unordered_multiset);
+
+// Map
+PROTO_CASE_MAP(std::map);
+PROTO_CASE_MAP(std::multimap);
+PROTO_CASE_HASHMAP(std::unordered_map);
+PROTO_CASE_HASHMAP(std::unordered_multimap);
+
 
 //
-// 整数
+// Impl ====================================================
+//
+
+//
+// Interger
 //
 template<typename T>
 struct ProtoSerializerImpl<T, kProtoType_Integer> {
@@ -124,7 +196,7 @@ struct ProtoSerializerImpl<T, kProtoType_Integer> {
 
 
 //
-// 浮点
+// Float
 //
 template<typename T>
 struct ProtoSerializerImpl<T, kProtoType_Float> {
@@ -146,7 +218,7 @@ struct ProtoSerializerImpl<T, kProtoType_Float> {
 };
 
 //
-// 字符串
+// String
 //
 template<typename T>
 struct ProtoSerializerImpl<T, kProtoType_String> {
@@ -169,7 +241,7 @@ struct ProtoSerializerImpl<T, kProtoType_String> {
 
 
 //
-// Protobuf生成的类型
+// Generated by Protobuf
 //
 template<typename T>
 struct ProtoSerializerImpl<T, kProtoType_Proto> {
@@ -184,13 +256,12 @@ public:
 };
 
 //
-// vector<T>
+// Sequence Container: vector, list, deque
 //
+template<typename T, typename Allocator, template<typename, typename> class Container>
+struct ProtoSerializerImpl<Container<T, Allocator>, kProtoType_Seq> {
 
-template<typename T>
-struct ProtoSerializerImpl<std::vector<T>, kProtoType_List> {
-
-    std::string serialize(const std::vector<T> &objects) const {
+    std::string serialize(const Container<T, Allocator> &objects) const {
         SequenceProto proto;
         ProtoSerializer<T> member_serializer;
         for (auto &v : objects) {
@@ -203,7 +274,7 @@ struct ProtoSerializerImpl<std::vector<T>, kProtoType_List> {
         return proto.SerializeAsString();
     }
 
-    bool deserialize(std::vector<T> &objects, const std::string &data) const {
+    bool deserialize(Container<T, Allocator> &objects, const std::string &data) const {
         SequenceProto proto;
         ProtoSerializer<T> member_serializer;
         if (proto.ParseFromString(data)) {
@@ -219,14 +290,52 @@ struct ProtoSerializerImpl<std::vector<T>, kProtoType_List> {
 };
 
 //
-// map<KeyT, ValueT>
+// Set Container: set, multiset
 //
-template<typename KeyT, typename ValueT>
-struct ProtoSerializerImpl<std::map<KeyT, ValueT>, kProtoType_Map> {
-    std::string serialize(const std::map<KeyT, ValueT> &objects) const {
+template<typename Key, typename Compare, typename Allocator, template<typename, typename, typename> class Set>
+struct ProtoSerializerImpl<Set<Key, Compare, Allocator>, kProtoType_Set> {
+
+    typedef Set<Key, Compare, Allocator> SetType;
+
+    std::string serialize(const SetType &objects) const {
+        SequenceProto proto;
+        ProtoSerializer<Key> member_serializer;
+        for (auto &v : objects) {
+            ArchiveMemberProto *mem = proto.add_values();
+            if (mem) {
+                mem->set_data(member_serializer.serialize(v));
+            }
+        }
+
+        return proto.SerializeAsString();
+    }
+
+    bool deserialize(SetType &objects, const std::string &data) const {
+        SequenceProto proto;
+        ProtoSerializer<Key> member_serializer;
+        if (proto.ParseFromString(data)) {
+            for (int i = 0; i < proto.values_size(); ++i) {
+                Key obj;
+                if (member_serializer.deserialize(obj, proto.values(i).data()))
+                    objects.insert(obj);
+            }
+            return true;
+        }
+        return false;
+    }
+};
+
+//
+// Map Container: map, multimap
+//
+template<typename Key, typename T, typename Compare, typename Allocator, template<typename, typename, typename, typename> class Map>
+struct ProtoSerializerImpl<Map<Key, T, Compare, Allocator>, kProtoType_Map> {
+    typedef Map<Key, T, Compare, Allocator> MapType;
+
+    std::string serialize(const MapType &objects) const {
         AssociateProto proto;
-        ProtoSerializer<KeyT> key_serializer;
-        ProtoSerializer<ValueT> value_serializer;
+        ProtoSerializer<Key> key_serializer;
+        ProtoSerializer<T> value_serializer;
         for (auto &v : objects) {
             AssociateProto::ValueType *mem = proto.add_values();
             if (mem) {
@@ -242,14 +351,14 @@ struct ProtoSerializerImpl<std::map<KeyT, ValueT>, kProtoType_Map> {
         return proto.SerializeAsString();
     }
 
-    bool deserialize(std::map<KeyT, ValueT> &objects, const std::string &bin) const {
+    bool deserialize(MapType &objects, const std::string &bin) const {
         AssociateProto proto;
-        ProtoSerializer<KeyT> key_serializer;
-        ProtoSerializer<ValueT> value_serializer;
+        ProtoSerializer<Key> key_serializer;
+        ProtoSerializer<T> value_serializer;
         if (proto.ParseFromString(bin)) {
             for (int i = 0; i < proto.values_size(); ++i) {
-                KeyT key;
-                ValueT value;
+                Key key;
+                T value;
                 if (key_serializer.deserialize(key, proto.values(i).key().data())
                     && value_serializer.deserialize(value, proto.values(i).value().data())) {
                     objects.insert(std::make_pair(key, value));
@@ -263,7 +372,90 @@ struct ProtoSerializerImpl<std::map<KeyT, ValueT>, kProtoType_Map> {
 
 
 //
-// 用户自定义类型
+// Hash Set Container: unordered_set, unordered_multiset
+//
+template<typename Key, typename Hash, typename KeyEqual, typename Allocator, template<typename, typename, typename, typename> class Set>
+struct ProtoSerializerImpl<Set<Key, Hash, KeyEqual, Allocator>, kProtoType_HashSet> {
+
+    typedef Set<Key, Hash, KeyEqual, Allocator> SetType;
+
+    std::string serialize(const SetType &objects) const {
+        SequenceProto proto;
+        ProtoSerializer<Key> member_serializer;
+        for (auto &v : objects) {
+            ArchiveMemberProto *mem = proto.add_values();
+            if (mem) {
+                mem->set_data(member_serializer.serialize(v));
+            }
+        }
+
+        return proto.SerializeAsString();
+    }
+
+    bool deserialize(SetType &objects, const std::string &data) const {
+        SequenceProto proto;
+        ProtoSerializer<Key> member_serializer;
+        if (proto.ParseFromString(data)) {
+            for (int i = 0; i < proto.values_size(); ++i) {
+                Key obj;
+                if (member_serializer.deserialize(obj, proto.values(i).data()))
+                    objects.insert(obj);
+            }
+            return true;
+        }
+        return false;
+    }
+};
+
+
+//
+// Hash Map Container: unordered_map, unordered_multimap
+//
+template<typename Key, typename T, typename Hash, typename KeyEqual, typename Allocator,
+        template<typename, typename, typename, typename, typename> class Map>
+struct ProtoSerializerImpl<Map<Key, T, Hash, KeyEqual, Allocator>, kProtoType_HashMap> {
+    typedef Map<Key, T, Hash, KeyEqual, Allocator> MapType;
+
+    std::string serialize(const MapType &objects) const {
+        AssociateProto proto;
+        ProtoSerializer<Key> key_serializer;
+        ProtoSerializer<T> value_serializer;
+        for (auto &v : objects) {
+            AssociateProto::ValueType *mem = proto.add_values();
+            if (mem) {
+                ArchiveMemberProto *key = mem->mutable_key();
+                ArchiveMemberProto *value = mem->mutable_value();
+                if (key && value) {
+                    key->set_data(key_serializer.serialize(v.first));
+                    value->set_data(value_serializer.serialize(v.second));
+                }
+            }
+        }
+
+        return proto.SerializeAsString();
+    }
+
+    bool deserialize(MapType &objects, const std::string &bin) const {
+        AssociateProto proto;
+        ProtoSerializer<Key> key_serializer;
+        ProtoSerializer<T> value_serializer;
+        if (proto.ParseFromString(bin)) {
+            for (int i = 0; i < proto.values_size(); ++i) {
+                Key key;
+                T value;
+                if (key_serializer.deserialize(key, proto.values(i).key().data())
+                    && value_serializer.deserialize(value, proto.values(i).value().data())) {
+                    objects.insert(std::make_pair(key, value));
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+};
+
+//
+// User Defined
 //
 template<typename T>
 struct ProtoSerializerImpl<T, kProtoType_UserDefined> {
@@ -276,6 +468,5 @@ public:
         return object.deserialize(data);
     }
 };
-
 
 #endif //TINYWORLD_TINYSERIALIZER_PROTO_H
