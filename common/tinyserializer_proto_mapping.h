@@ -105,9 +105,11 @@ public:
     //            -  !    : from one StructFactory instance
     // cpp_name   - c++ struct's name
     // proto_name - protobuf message's name
-    ProtoMapping(Struct<T> *reflection,
+    ProtoMapping(ProtoMappingFactory *factory,
+                 Struct<T> *reflection,
                  const std::string &cpp_name,
-                 const std::string &proto_name = "") {
+                 const std::string &proto_name = "")
+            : factory_(factory) {
         cpp_name_ = cpp_name;
 
         if (proto_name.empty())
@@ -161,9 +163,12 @@ public:
         return *this;
     }
 
+    void done();
+
 public:
     Struct<T> *struct_;
     bool from_struct_factory_;
+    ProtoMappingFactory *factory_;
 };
 
 
@@ -231,6 +236,7 @@ public:
         if (mapping) {
             return mapping->createProtoDescriptor();
         }
+        return false;
     }
 
     void createAllProtoDescriptor() {
@@ -266,7 +272,7 @@ protected:
                                                   const std::string &cpp_name,
                                                   const std::string &proto_name) {
 
-        auto mapping = std::make_shared<ProtoMapping<T>>(reflection, cpp_name, proto_name);
+        auto mapping = std::make_shared<ProtoMapping<T>>(this, reflection, cpp_name, proto_name);
 
         mapping->setDescriptorPool(&descriptor_pool_);
         mapping->setMessageFactory(&message_factory_);
@@ -296,6 +302,13 @@ protected:
     google::protobuf::DescriptorPool descriptor_pool_;
     google::protobuf::DynamicMessageFactory message_factory_;
 };
+
+
+template<typename T>
+inline void ProtoMapping<T>::done() {
+    if (factory_)
+        factory_->createProtoDescriptorByType<T>();
+}
 
 TINY_NAMESPACE_END
 

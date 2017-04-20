@@ -66,6 +66,8 @@ endif ()
 add_executable(test_orm test_orm.cpp)
 target_link_libraries(test_orm tinyworld ${ORM_LIBS})
 
+add_executable(test_serialize test_serialize.cpp ../example/player.pb.cc)
+target_link_libraries(test_serialize tinyworld protobuf)
 
 #
 #add_executable(test_zmq  test.cpp)
