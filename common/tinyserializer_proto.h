@@ -56,13 +56,14 @@ struct ProtoSerializer : public ProtoSerializerImpl<T, ProtoCase<T>::value> {
 //
 // Archiver : serialize and deserialize by the same order
 //
+template <template <typename> class SerializerT = ProtoSerializer>
 class ProtoArchiver : public ArchiveProto {
 public:
     template<typename T>
     ProtoArchiver &operator<<(const T &object) {
         ArchiveMemberProto *mem = this->add_members();
         if (mem) {
-            mem->set_data(serialize(object));
+            mem->set_data(serialize<SerializerT>(object));
         }
         return *this;
     }
@@ -71,7 +72,7 @@ public:
     ProtoArchiver &operator>>(T &object) {
         if (read_pos_ < this->members_size()) {
             const ArchiveMemberProto &mem = this->members(read_pos_);
-            deserialize(object, mem.data());
+            deserialize<SerializerT>(object, mem.data());
             read_pos_++;
         }
         return *this;

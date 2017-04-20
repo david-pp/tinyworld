@@ -87,12 +87,12 @@ class ProtoDynSerializer;
 //
 
 template<template<typename T> class SerializerT = ProtoSerializer, typename T>
-std::string serialize(const T &object, const SerializerT<T> &serializer = SerializerT<T>()) {
+inline std::string serialize(const T &object, const SerializerT<T> &serializer = SerializerT<T>()) {
     return serializer.serialize(object);
 };
 
 template<template<typename T> class SerializerT = ProtoSerializer, typename T>
-bool deserialize(T &object, const std::string &bin, const SerializerT<T> &serializer = SerializerT<T>()) {
+inline bool deserialize(T &object, const std::string &bin, const SerializerT<T> &serializer = SerializerT<T>()) {
     return serializer.deserialize(object, bin);
 }
 

@@ -38,9 +38,5 @@ add_executable(demo_reflection demo_reflection.cpp)
 add_executable(demo_serialize demo_serialize.cpp ${PB_CPPOUTS})
 target_link_libraries(demo_serialize tinyworld protobuf)
 
-#add_executable(test_serialize_dyn test_serialize_dyn.cpp)
-#target_link_libraries(test_serialize_dyn tinyworld protobuf)
-
-#
-#add_executable(test_zmq  test.cpp)
-#target_link_libraries(test_zmq zmq boost_thread boost_system)
+add_executable(demo_serialize_dyn demo_serialize_dyn.cpp ${PB_CPPOUTS})
+target_link_libraries(demo_serialize_dyn tinyworld protobuf)

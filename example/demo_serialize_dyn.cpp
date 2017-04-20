@@ -1,6 +1,7 @@
 #include "tinyreflection.h"
 #include "tinyserializer.h"
 #include "tinyserializer_proto.h"
+#include "tinyserializer_proto_dyn.h"
 
 #include "player.pb.h"
 
@@ -14,10 +15,10 @@ void demo_basic() {
     std::cout << "\n------ int ----------\n";
     {
         uint32_t v1 = 1024;
-        std::string data = serialize(v1);
+        std::string data = serialize<ProtoDynSerializer>(v1);
 
         uint64_t v2 = 0;
-        deserialize(v2, data);
+        deserialize<ProtoDynSerializer>(v2, data);
 
         std::cout << v2 << std::endl;
     }
@@ -25,10 +26,10 @@ void demo_basic() {
     std::cout << "\n------ float ----------\n";
     {
         double v1 = 3.1415926;
-        std::string data = serialize(v1);
+        std::string data = serialize<ProtoDynSerializer>(v1);
 
         float v2 = 0;
-        deserialize(v2, data);
+        deserialize<ProtoDynSerializer>(v2, data);
 
         std::cout << v2 << std::endl;
     }
@@ -36,10 +37,10 @@ void demo_basic() {
     std::cout << "\n------ string ----------\n";
     {
         std::string v1 = "Hello David++!";
-        std::string data = serialize(v1);
+        std::string data = serialize<ProtoDynSerializer>(v1);
 
         std::string v2;
-        if (deserialize(v2, data))
+        if (deserialize<ProtoDynSerializer>(v2, data))
             std::cout << v2 << std::endl;
         else
             std::cout << "error happens !" << std::endl;
@@ -56,10 +57,10 @@ void demo_basic() {
         p1.mutable_weapon()->set_name("Sword");
 
 
-        std::string data = serialize(p1);
+        std::string data = serialize<ProtoDynSerializer>(p1);
 
         PlayerProto p2;
-        if (deserialize(p2, data))
+        if (deserialize<ProtoDynSerializer>(p2, data))
             std::cout << p2.ShortDebugString() << std::endl;
         else
             std::cout << "error happens !" << std::endl;
@@ -83,10 +84,10 @@ void demo_stl() {
     std::cout << "\n------ vector<int> ----------\n";
     {
         std::vector<uint8_t> v1 = {1, 2, 3, 4, 5, 6};
-        std::string data = serialize(v1);
+        std::string data = serialize<ProtoDynSerializer>(v1);
 
         std::vector<uint32_t> v2;
-        deserialize(v2, data);
+        deserialize<ProtoDynSerializer>(v2, data);
 
         for (auto &v : v2)
             std::cout << v << ",";
@@ -101,10 +102,10 @@ void demo_stl() {
                 {1026, p},
         };
 
-        std::string data = serialize(v1);
+        std::string data = serialize<ProtoDynSerializer>(v1);
 
         std::map<uint64_t, PlayerProto> v2;
-        deserialize(v2, data);
+        deserialize<ProtoDynSerializer>(v2, data);
 
         for (auto &v : v2)
             std::cout << v.first << " - " << v.second.ShortDebugString() << std::endl;
@@ -118,10 +119,10 @@ void demo_stl() {
                 {1026, {p}},
         };
 
-        std::string data = serialize(v1);
+        std::string data = serialize<ProtoDynSerializer>(v1);
 
         std::map<uint32_t, std::vector<PlayerProto>> v2;
-        deserialize(v2, data);
+        deserialize<ProtoDynSerializer>(v2, data);
 
         for (auto &v : v2) {
             std::cout << v.first << std::endl;
@@ -138,26 +139,6 @@ void demo_stl() {
 struct Weapon {
     uint32_t type = 0;
     std::string name = "";
-
-    //
-    // intrusive way
-    //
-    std::string serialize() const {
-        WeaponProto proto;
-        proto.set_type(type);
-        proto.set_name(name);
-        return proto.SerializeAsString();
-    }
-
-    bool deserialize(const std::string &data) {
-        WeaponProto proto;
-        if (proto.ParseFromString(data)) {
-            type = proto.type();
-            name = proto.name();
-            return true;
-        }
-        return false;
-    }
 };
 
 struct Player {
@@ -215,57 +196,60 @@ struct Player {
     }
 };
 
-// non-intrusive way
-template<>
-struct ProtoSerializer<Player> {
-    std::string serialize(const Player &p) const {
-        PlayerProto proto;
-        proto.set_id(p.id);
-        proto.set_name(p.name);
-        // complex object
-        proto.set_weapons_map(::serialize(p.weapons_map));
-        return proto.SerializeAsString();
-    }
+// Struct -> Proto Mapping
+RUN_ONCE(Mapping) {
 
-    bool deserialize(Player &p, const std::string &data) const {
-        PlayerProto proto;
-        if (proto.ParseFromString(data)) {
-            p.id = proto.id();
-            p.name = proto.name();
-            // complex object
-            ::deserialize(p.weapons_map, proto.weapons_map());
-            return true;
-        }
-        return false;
-    }
-};
+    ProtoMappingFactory::instance().declare<Weapon>("Weapon")
+            .property<ProtoDynSerializer>("type", &Weapon::type, 1)
+            .property<ProtoDynSerializer>("name", &Weapon::name, 2);
+
+    ProtoMappingFactory::instance().declare<Player>("Player", "PlayerDyn3Proto")
+            .property<ProtoDynSerializer>("id", &Player::id, 1)
+            .property<ProtoDynSerializer>("name", &Player::name, 2)
+            .property<ProtoDynSerializer>("quests", &Player::quests, 3)
+            .property<ProtoDynSerializer>("weapon", &Player::weapon, 4)
+            .property<ProtoDynSerializer>("weapon2", &Player::weapons, 5)
+            .property<ProtoDynSerializer>("weapons_map", &Player::weapons_map, 6);
+
+    // MUST!!! CREATE DESCRIPTORS
+    ProtoMappingFactory::instance().createAllProtoDescriptor();
+}
 
 void demo_userdefined() {
     std::cout << "\n========" << __PRETTY_FUNCTION__ << std::endl;
 
-    std::cout << "\n------ Weapon ----------\n";
-    {
-        Weapon w;
-        w.type = 22;
-        w.name = "Blade";
+    try {
+        std::cout << "\n------ Proto created ----------\n";
+        {
+            ProtoMappingFactory::instance().createAllProtoDefine();
+        }
 
-        std::string data = serialize(w);
+        std::cout << "\n------ Weapon ----------\n";
+        {
+            Weapon w;
+            w.type = 22;
+            w.name = "Blade";
 
-        Weapon w2;
-        deserialize(w2, data);
-        std::cout << w2.type << " - " << w2.name << std::endl;
-    }
+            std::string data = serialize<ProtoDynSerializer>(w);
 
-    std::cout << "\n------ Player ----------\n";
-    {
-        Player p;
-        p.init();
+            Weapon w2;
+            deserialize<ProtoDynSerializer>(w2, data);
+            std::cout << w2.type << " - " << w2.name << std::endl;
+        }
 
-        std::string data = serialize(p);
+        std::cout << "\n------ Player ----------\n";
+        {
+            Player p;
+            p.init();
 
-        Player p2;
-        deserialize(p2, data);
-        p2.dump();
+            std::string data = serialize<ProtoDynSerializer>(p);
+
+            Player p2;
+            deserialize<ProtoDynSerializer>(p2, data);
+            p2.dump();
+        }
+    } catch (const std::exception& e) {
+        std::cout << "Error Happens: " << e.what() << std::endl;
     }
 }
 
@@ -293,7 +277,7 @@ void demo_archiver() {
 
         std::vector<std::map<uint32_t, PlayerProto> > vecmap{pmap, pmap, pmap};
 
-        ProtoArchiver<> ar;
+        ProtoArchiver<ProtoDynSerializer> ar;
         ar << p << p << p;        // support: protobuf generated
         ar << pvec;               // support: std::vector
         ar << pmap;               // support: std::map
@@ -311,7 +295,7 @@ void demo_archiver() {
         std::map<uint32_t, PlayerProto> pmap;
         std::vector<std::map<uint32_t, PlayerProto> > vecmap;
 
-        ProtoArchiver<> ar, ar2;
+        ProtoArchiver<ProtoDynSerializer> ar, ar2;
 //        if (ar.ParseFromString(data)) {
         if (::deserialize(ar, data)) {
             ar >> p1 >> p2 >> p3;
