@@ -85,7 +85,7 @@ void demo_stl() {
         std::vector<uint8_t> v1 = {1, 2, 3, 4, 5, 6};
         std::string data = serialize(v1);
 
-        std::vector<uint32_t> v2;
+        std::list<uint32_t> v2;
         deserialize(v2, data);
 
         for (auto &v : v2)

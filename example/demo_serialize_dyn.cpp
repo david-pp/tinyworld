@@ -203,7 +203,7 @@ RUN_ONCE(Mapping) {
             .property<ProtoDynSerializer>("type", &Weapon::type, 1)
             .property<ProtoDynSerializer>("name", &Weapon::name, 2);
 
-    ProtoMappingFactory::instance().declare<Player>("Player", "PlayerDyn3Proto")
+    ProtoMappingFactory::instance().declare<Player>("Player", "PlayerDynProto")
             .property<ProtoDynSerializer>("id", &Player::id, 1)
             .property<ProtoDynSerializer>("name", &Player::name, 2)
             .property<ProtoDynSerializer>("quests", &Player::quests, 3)
