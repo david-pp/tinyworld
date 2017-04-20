@@ -333,3 +333,10 @@ TinySerializer框架的用法
      - 静态出错会在编译器暴露，而动态出错时会在运行时抛出异常。
      
 - 动态的好处：用户自定义类型使用起来更加方便，不要额外定义Proto和实现序列化的约定。
+
+
+### 4. 进一步了解
+
+ - [TinySerializer的设计](./tiny-serializer-design.md)
+ 
+ 
