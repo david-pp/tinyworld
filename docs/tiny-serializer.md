@@ -335,6 +335,24 @@ TinySerializer框架的用法
 - 动态的好处：用户自定义类型使用起来更加方便，不要额外定义Proto和实现序列化的约定。
 
 
+- 性能简单对比：动态/静态 ~= 1.3倍
+
+    ```bash
+    $ time `./demo_serialize_dyn 10000 > /dev/null`
+    
+    real    0m7.522s
+    user    0m7.051s
+    sys     0m0.435s
+    
+    $ time `./demo_serialize 10000 > /dev/null`
+    
+    real    0m5.858s
+    user    0m5.460s
+    sys     0m0.373s
+    ```
+
+
+
 ### 4. 进一步了解
 
  - [TinySerializer的设计](./tiny-serializer-design.md)

@@ -364,9 +364,15 @@ void demo_archiver() {
     }
 }
 
-int main() {
-    demo_basic();
-    demo_stl();
-    demo_userdefined();
-    demo_archiver();
+int main(int argc, const char* argv[]) {
+    int count = 1;
+    if (argc > 1)
+        count = std::atoi(argv[1]);
+
+    for (int i = 0; i < count; ++i) {
+        demo_basic();
+        demo_stl();
+        demo_userdefined();
+        demo_archiver();
+    }
 }
