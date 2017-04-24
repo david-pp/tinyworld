@@ -26,22 +26,8 @@
 #include <iostream>
 
 
-// TODO: using c++11 xxx_t
-//typedef unsigned int uint;
-//typedef int8_t int8;
-//typedef int16_t int16;
-//typedef int32_t int32;
-//typedef int64_t int64;
-//
-//typedef uint8_t uint8;
-//typedef uint16_t uint16;
-//typedef uint32_t uint32;
-//typedef uint64_t uint64;
-
 #define TINY_NAMESPACE_BEGIN // namespace tiny {
 #define TINY_NAMESPACE_END   // }
-
-
 
 //
 // 利用构造函数执行一些初始化代码的技巧
@@ -56,7 +42,6 @@ struct RunOnceHelper {
         void reg_func_##tagname(); \
         RunOnceHelper reg_obj_##tagname(reg_func_##tagname); \
         void reg_func_##tagname()
-
 
 //
 // 输出二进制(仿照`hexdump -C`命令)

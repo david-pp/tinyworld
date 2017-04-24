@@ -34,6 +34,6 @@ message("CXXFLAGS: ${CMAKE_CXX_FLAGS}")
 message("LDFLAGS : ${CMAKE_EXE_LINKER_FLAGS}")
 
 add_subdirectory(common)
-add_subdirectory(dataserver)
+#add_subdirectory(dataserver)
 add_subdirectory(example)
 add_subdirectory(test)

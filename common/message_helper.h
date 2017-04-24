@@ -101,11 +101,11 @@ struct MessageTypeCode {
 
 #define DECLARE_MESSAGE_BY_TYPE(MsgType, type) \
     template <> struct MessageTypeCode<MsgType> { \
-        static uint16 value() { return type; } }
+        static uint16_t value() { return type; } }
 
 #define DECLARE_MESSAGE_BY_TYPE2(MsgType, type1, type2) \
     template <> struct MessageTypeCode<MsgType> { \
-        static uint16 value() { return MAKE_MSG_TYPE(type1, type2); } }
+        static uint16_t value() { return MAKE_MSG_TYPE(type1, type2); } }
 
 
 #endif //TINYWORLD_MESSAGE_HELPER_H
