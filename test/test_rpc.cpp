@@ -2,8 +2,8 @@
 #include <cstdlib>
 #include <thread>
 #include <chrono>
-#include "rpc_client.h"
-#include "rpc_server.h"
+#include "tinyrpc_client.h"
+#include "tinyrpc_server.h"
 
 
 #include "test_rpc.pb.h"
@@ -11,7 +11,6 @@
 #include <zmq.h>
 
 #include "message_dispatcher.h"
-#include "../dataserver/command.pb.h"
 #include "zmq_client.h"
 #include "zmq_server.h"
 

@@ -43,6 +43,7 @@
 #include "message.h"
 #include "message_helper.h"
 #include "tinyserializer.h"
+#include "tinyserializer_proto.h"
 
 //
 // Message Buffer: Serialize MsgT to Binary, then ompress, encrypt ...
@@ -130,7 +131,7 @@ public:
             header->type = type;
         }
 
-        uint8_t *msg_proto = (uint8 *) (buf.data()) + sizeof(MessageHeader);
+        uint8_t *msg_proto = (uint8_t *) (buf.data()) + sizeof(MessageHeader);
         memcpy(msg_proto, data.data(), data.size());
         return true;
     };
@@ -148,7 +149,7 @@ using MessageBufferPtr = std::shared_ptr<MessageBuffer>;
 template<typename... ArgTypes>
 class MessageHandlerBase {
 public:
-    MessageHandlerBase(uint16 msgtype = 0, const std::string &msgname = "")
+    MessageHandlerBase(uint16_t msgtype = 0, const std::string &msgname = "")
             : msgtype_(msgtype), msgname_(msgname) {}
 
     virtual ~MessageHandlerBase() {}
@@ -385,7 +386,16 @@ public:
     // Message Dispatching
     //
     MessageBufferPtr dispatch(const std::string &msgdata, ArgTypes... args) {
+        if (msgdata.size() < sizeof(MessageHeader)) {
+            throw MsgDispatcherException("message size is invalid");
+            return nullptr;
+        }
+
         MessageHeader *msgheader = (MessageHeader *) msgdata.data();
+        if (msgheader->msgsize() != msgdata.size()) {
+            throw MsgDispatcherException("message size is invalid");
+            return nullptr;
+        }
 
         if (0 == msgheader->type_is_name || 0 == msgheader->type_len) {
             throw MsgDispatcherException("message header error");

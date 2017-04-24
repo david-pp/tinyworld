@@ -1,5 +1,6 @@
-package rpc;
+syntax = "proto2";
 
+package rpc;
 
 message GetRequest {
     optional uint32 player = 1;

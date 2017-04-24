@@ -40,3 +40,13 @@ target_link_libraries(demo_serialize tinyworld protobuf)
 
 add_executable(demo_serialize_dyn demo_serialize_dyn.cpp ${PB_CPPOUTS})
 target_link_libraries(demo_serialize_dyn tinyworld protobuf)
+
+add_executable(demo_msg demo_msg.cpp ${PB_CPPOUTS})
+target_link_libraries(demo_msg tinyworld protobuf)
+
+add_executable(demo_zmq demo_zmq.cpp ${PB_CPPOUTS})
+target_link_libraries(demo_zmq tinyworld protobuf zmq)
+
+add_executable(demo_rpc demo_rpc.cpp ${PB_CPPOUTS})
+target_link_libraries(demo_rpc tinyworld protobuf zmq)
+

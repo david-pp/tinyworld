@@ -37,15 +37,6 @@ add_executable(test_logger test_logger.cpp)
 target_link_libraries(test_logger log4cxx apr-1 aprutil-1 iconv)
 
 
-add_executable(test_msg test_msg.cpp ${PB_CPPOUTS})
-target_link_libraries(test_msg tinyworld protobuf)
-
-add_executable(test_zmq test_zmq.cpp ${PB_CPPOUTS})
-target_link_libraries(test_zmq tinyworld protobuf zmq)
-
-add_executable(test_rpc test_rpc.cpp ${PB_CPPOUTS})
-target_link_libraries(test_rpc tinyworld protobuf zmq)
-
 #
 #  SOCI ? Mysql++ ?
 #

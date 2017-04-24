@@ -1,11 +1,11 @@
-#include "rpc_client.h"
-#include "rpc_server.h"
-#include "rpc.pb.h"
+#include "tinyrpc_client.h"
+#include "tinyrpc_server.h"
+#include "tinyrpc.pb.h"
 
-uint64 ProtoRPCHolderBase::total_id_ = 0;
+uint64_t RPCHolderBase::total_id_ = 0;
 
 
-void ProtoRPCHolderBase::setTimeout(long ms)
+void RPCHolderBase::setTimeout(long ms)
 {
     timeout_ms_ = ms;
 

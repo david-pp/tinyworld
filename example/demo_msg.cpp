@@ -1,8 +1,9 @@
 #include <iostream>
 #include "message_dispatcher.h"
+#include "tinyserializer.h"
 #include "tinyserializer_proto.h"
 
-#include "test_msg.pb.h"
+#include "command.pb.h"
 
 //
 // 模拟客户端
@@ -195,14 +196,14 @@ struct LoginRep {
 template<>
 struct ProtoSerializer<LoginRep> {
     std::string serialize(const LoginRep &msg) const {
-        ProtoArchiver ar;
+        ProtoArchiver<> ar;
         ar << msg.info;
         ar << msg.values;
         return ar.SerializeAsString();
     }
 
     bool deserialize(LoginRep &msg, const std::string &data) const {
-        ProtoArchiver ar;
+        ProtoArchiver<> ar;
         if (ar.ParseFromString(data)) {
             ar >> msg.info;
             ar >> msg.values;

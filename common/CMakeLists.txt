@@ -32,5 +32,5 @@ foreach(PB ${PROTOS})
 endforeach(PB ${PROTOS})
 
 #file(GLOB SRCFILES *.cpp)
-set(SRCFILES tinymysql.cpp url.cpp rpc.cpp tinyorm.cpp ${PB_CPPOUTS})
+set(SRCFILES tinymysql.cpp url.cpp tinyrpc.cpp tinyorm.cpp ${PB_CPPOUTS})
 add_library(tinyworld STATIC ${SRCFILES})

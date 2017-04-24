@@ -6,16 +6,15 @@
 #include "zmq_client.h"
 #include "zmq_server.h"
 
-#include "test_msg.pb.h"
+#include "command.pb.h"
 
-std::shared_ptr<zmq::context_t> g_context;
-
-void test_client(int id)
-{
+//
+// Async Client
+//
+void demo_client(int id) {
     ZMQClient::MsgDispatcher::instance()
-            .on<Cmd::LoginReply>([](const Cmd::LoginReply& msg){
-                std::cout << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << msg.DebugString() << std::endl;
+            .on<Cmd::LoginReply>([](const Cmd::LoginReply &msg) {
+                LOGGER_DEBUG("CLIENT", msg.ShortDebugString());
             });
 
     try {
@@ -29,30 +28,30 @@ void test_client(int id)
             send.set_id(count++);
             send.set_type(20);
             send.set_name("david");
-            client.sendMsg(send);
+            client.send(send);
 
-            std::cout << "send.." << std::endl;
+            LOGGER_DEBUG("CLIENT", "send ...");
 
             std::chrono::milliseconds ms(1000);
             std::this_thread::sleep_for(ms);
         }
     }
-    catch (std::exception& e)
-    {
+    catch (std::exception &e) {
         std::cerr << e.what() << std::endl;
     }
 }
 
-void test_server()
-{
+//
+// Async Server
+//
+void demo_server() {
     ZMQAsyncServer server;
 
     ZMQAsyncServer::MsgDispatcher::instance()
-            .on<Cmd::LoginRequest, Cmd::LoginReply>([&server](const Cmd::LoginRequest& msg, const std::string& client){
-                LOG_DEBUG("ZMQAsyncServer", "%s", msg.DebugString().c_str());
+            .on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &msg, const std::string &client) {
+                LOGGER_DEBUG("ZMQAsyncServer", msg.ShortDebugString());
                 Cmd::LoginReply reply;
                 reply.set_info("ZMQAsyncServer");
-//                server.sendMsg(client, reply);
                 return reply;
             });
 
@@ -61,23 +60,26 @@ void test_server()
         while (true) {
             server.poll(1000);
 
-            std::cout << "idle ..." << std::endl;
+            LOGGER_DEBUG("ZMQAsyncServer", "idle ...");
         }
     }
-    catch (std::exception& e)
-    {
+    catch (std::exception &e) {
         std::cerr << e.what() << std::endl;
     }
 }
 
-void test_worker()
-{
+
+static std::shared_ptr<zmq::context_t> g_context;
+
+//
+// Sync/Worker Server
+//
+void demo_worker(bool isworker) {
     ZMQWorker worker(ZMQWorker::MsgDispatcher::instance(), g_context);
 
     ZMQWorker::MsgDispatcher::instance()
-            .on<Cmd::LoginRequest, Cmd::LoginReply>([&worker](const Cmd::LoginRequest& msg){
-                std::cout << __PRETTY_FUNCTION__ << std::endl;
-                std::cout << msg.DebugString() << std::endl;
+            .on<Cmd::LoginRequest, Cmd::LoginReply>([](const Cmd::LoginRequest &msg) {
+                LOGGER_DEBUG("WORKER", msg.ShortDebugString());
 
                 Cmd::LoginReply reply;
                 reply.set_info("worker reply!!");
@@ -85,24 +87,24 @@ void test_worker()
             });
 
     try {
-        worker.connect("tcp://localhost:6666");
-//        worker.bind("tcp://*:5555");
-//        worker.connect("inproc://workers");
+        if (isworker)
+            worker.connect("tcp://localhost:6666");
+            //        worker.connect("inproc://workers");
+        else
+            worker.bind("tcp://*:5555");
 
         while (true) {
             worker.poll(1000);
 
-            std::cout << "idle ..." << std::endl;
+            LOGGER_DEBUG("WORKER", "idle ...");
         }
     }
-    catch (std::exception& e)
-    {
+    catch (std::exception &e) {
         std::cerr << e.what() << std::endl;
     }
 }
 
-void test_broker()
-{
+void demo_broker() {
     ZMQBroker broker(g_context);
 
     try {
@@ -111,44 +113,33 @@ void test_broker()
 
         while (true) {
             broker.poll(1000);
-
-            std::cout << "idle ..." << std::endl;
+            LOGGER_DEBUG("BROKER", "idle ...");
         }
     }
-    catch (std::exception& e)
-    {
+    catch (std::exception &e) {
         std::cerr << e.what() << std::endl;
     }
 }
 
 
-int main(int argc, const char* argv[])
-{
-    g_context.reset(new zmq::context_t(2));
+int main(int argc, const char *argv[]) {
+//    g_context.reset(new zmq::context_t(2));
 
-    if (argc < 2 )
-    {
+    if (argc < 2) {
         std::cout << "Usage: ... client | server" << std::endl;
         return 0;
     }
 
     std::string op = argv[1];
-    if ("client" == op)
-    {
-        test_client(1);
-    }
-    else if ("server" == op)
-    {
-        test_server();
-    }
-    else if ("worker" == op)
-    {
-        test_worker();
-    }
-    else if ("broker" == op)
-    {
-        std::thread t(test_worker);
-        test_broker();
-        t.join();
+    if ("client" == op) {
+        demo_client(1);
+    } else if ("server" == op) {
+        demo_server();
+    } else if ("sync_server" == op) {
+        demo_worker(false);
+    } else if ("broker" == op) {
+        demo_broker();
+    } else if ("worker" == op) {
+        demo_worker(true);
     }
 }
