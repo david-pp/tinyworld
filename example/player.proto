@@ -22,3 +22,12 @@ message PlayerProto {
     // STL
     optional bytes weapons_map = 6;
 }
+
+message PlayerProto4Table {
+    optional uint32 id = 1;
+    optional bytes name = 2;
+    optional uint32 age = 3;
+
+    optional bytes  weaon = 4;
+    optional bytes  weapns = 5;
+}

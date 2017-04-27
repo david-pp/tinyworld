@@ -31,6 +31,43 @@ struct Weapon {
 // Player -> PLAYER
 //
 struct Player {
+    //
+    // TableMeta约束
+    //
+    typedef uint32_t TableKey;
+
+    static const char *tableName() { return "player"; }
+
+    TableKey tableKey() const { return id; }
+
+    //
+    // Proto序列化约束
+    //
+    std::string serialize() const {
+        PlayerProto4Table proto;
+        proto.set_id(id);
+        proto.set_name(name);
+        proto.set_age(age);
+        proto.set_weaon(::serialize(weapon));
+        proto.set_weapns(::serialize(weapons));
+        return proto.SerializeAsString();
+    }
+
+    bool deserialize(const std::string &data) {
+        PlayerProto4Table proto;
+        if (proto.ParseFromString(data)) {
+            id = proto.id();
+            name = proto.name();
+            age = proto.age();
+            ::deserialize(weapon, proto.weaon());
+            ::deserialize(weapons, proto.weapns());
+
+            return true;
+        }
+        return false;
+    }
+
+    // ...
     uint32_t id = 0;
     std::string name;
     uint8_t age = 0;
@@ -150,7 +187,7 @@ std::ostream &operator<<(std::ostream &os, const Player &p) {
     os << "- m_bytes_medium = " << p.m_bytes_medium.size() << std::endl;
     os << "- m_bytes_long   = " << p.m_bytes_long.size() << std::endl;
 
-    os << "- weapon         = {" << p.weapon.type  << "," << p.weapon.name << "}" << std::endl;
+    os << "- weapon         = {" << p.weapon.type << "," << p.weapon.name << "}" << std::endl;
     os << "- weapons        = " << p.weapons.size() << std::endl;
 
     return os;

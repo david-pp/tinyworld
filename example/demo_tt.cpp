@@ -1,13 +1,13 @@
 #include <iostream>
 #include "tinytable.h"
 
+#include "tinyorm.h"
+# include "tinyorm_mysql.h"
+
 #include "tinyrpc_server.h"
 #include "zmq_server.h"
 
-struct Player {
-    uint32_t id;
-    std::string name;
-};
+#include "player.h"
 
 void demo_client() {
     TableClient tc;
@@ -19,12 +19,16 @@ void demo_client() {
             tc.poll(1000);
             tc.checkTimeout();
 
-            tc.get<Player>(20u, 200)
+            tc.get<Player>(9)
                     .done([](const Player &p) {
                         LOG_DEBUG("tinytable", "done");
+                        std::cout << p << std::endl;
                     })
-                    .timeout([](uint32_t key){
+                    .timeout([](uint32_t key) {
                         LOG_DEBUG("tinytable", "timeout");
+                    })
+                    .nonexist([](uint32_t key) {
+                        LOG_DEBUG("tinytable", "nonexist");
                     });
 
             std::chrono::milliseconds ms(1000);
@@ -44,7 +48,17 @@ void demo_server() {
 
         tt::GetReply reply;
         reply.set_type(req.type());
-        reply.set_value("ttttttt");
+
+        Player p;
+        deserialize(p.id, req.keys());
+//        p.init();
+
+        TinyORM db;
+        if (db.select(p)) {
+            reply.set_value(serialize(p));
+            reply.set_retcode(0);
+        } else
+            reply.set_retcode(1);
         return reply;
     });
 
@@ -67,6 +81,8 @@ int main(int argc, const char *argv[]) {
         std::cout << "Usage: ... client | server" << std::endl;
         return 0;
     }
+
+    MySqlConnectionPool::instance().connect("mysql://david:123456@127.0.0.1/tinyworld");
 
     std::string op = argv[1];
 

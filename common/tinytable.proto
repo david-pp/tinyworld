@@ -10,5 +10,6 @@ message GetRequest {
 message GetReply {
     optional bytes type = 1;
     optional bytes keys = 2;
-    optional bytes value = 3;
+    optional uint32 retcode = 3;
+    optional bytes value = 4;
 }

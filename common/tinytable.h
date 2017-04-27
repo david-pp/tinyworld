@@ -26,6 +26,19 @@
 #include "zmq_client.h"
 #include "tinytable.pb.h"
 
+template<typename T>
+struct TableMeta {
+    typedef typename T::TableKey KeyType;
+
+    static const char *name() {
+        return T::tableName();
+    }
+
+    KeyType tableKey(const T &object) {
+        return object.tableKey();
+    }
+};
+
 class TableClient;
 
 class TableRequestHandlerBase {
@@ -43,11 +56,13 @@ typedef std::shared_ptr<TableRequestHandlerBase> TableRequestHandlerPtr;
 template<typename T, typename KeyT, typename RPCClientT>
 class TableGetHandler : public TableRequestHandlerBase {
 public:
+    friend class TableClient;
+
     typedef std::function<void(const T &)> DoneCallback;
     typedef std::function<void(const KeyT &)> ErrorCallback;
 
-    TableGetHandler(uint64_t id, RPCClientT *client)
-            : TableRequestHandlerBase(id), client_(client) {}
+    TableGetHandler(uint64_t id, RPCClientT *client, const KeyT &key)
+            : TableRequestHandlerBase(id), client_(client), key_(key) {}
 
     virtual ~TableGetHandler() {}
 
@@ -55,8 +70,8 @@ public:
         cb_done_ = callback;
 
         tt::GetRequest request;
-        request.set_type(typeid(T).name());
-        request.set_keys("1235");
+        request.set_type(TableMeta<T>::name());
+        request.set_keys(serialize(key_));
         client_->template emit<tt::GetRequest, tt::GetReply>(request)
                 .done(std::bind(&TableGetHandler::rpc_done, this, std::placeholders::_1))
                 .timeout(std::bind(&TableGetHandler::rpc_timeout, this, std::placeholders::_1))
@@ -77,11 +92,18 @@ public:
 
 protected:
     void rpc_done(const tt::GetReply &reply) {
-//        std::cout << __PRETTY_FUNCTION__ << std::endl;
         if (cb_done_) {
-            T value;
-            cb_done_(value);
+            if (reply.retcode() == 0) {
+                T value;
+                deserialize(value, reply.value());
+                cb_done_(value);
+            } else {
+                if (cb_nonexist_)
+                    cb_nonexist_(key_);
+            }
         }
+
+        client_->removeHandler(this->id());
     }
 
     void rpc_timeout(const tt::GetRequest &request) {
@@ -89,27 +111,41 @@ protected:
             KeyT key;
             cb_timeout_(key);
         }
+        client_->removeHandler(this->id());
     }
 
     void rpc_error(const tt::GetRequest &, rpc::ErrorCode errorCode) {
         std::cout << rpc::ErrorCode_Name(errorCode) << std::endl;
+        client_->removeHandler(this->id());
     }
 
 private:
+    RPCClientT *client_;
+
+    KeyT key_;
+    uint32_t timeout_ms_;
+
     DoneCallback cb_done_;
     ErrorCallback cb_timeout_;
     ErrorCallback cb_nonexist_;
-
-    RPCClientT *client_;
 };
 
 class TableClient : public AsyncRPCClient<ZMQClient> {
 public:
-    template<typename T, typename KeyT>
-    TableGetHandler<T, KeyT, TableClient> &get(const KeyT &key, uint32_t timeout_ms = 200) {
-        auto handler = std::make_shared<TableGetHandler<T, KeyT, TableClient>>(++total_id_, this);
+    template<typename T>
+    TableGetHandler<T, typename TableMeta<T>::KeyType, TableClient> &
+    get(const typename TableMeta<T>::KeyType &key) {
+        auto handler = std::make_shared<
+                TableGetHandler<T,
+                        typename TableMeta<T>::KeyType,
+                        TableClient>>(++total_id_, this, key);
+
         handlers_[handler->id()] = handler;
         return *handler.get();
+    }
+
+    void removeHandler(uint64_t id) {
+        handlers_.erase(id);
     }
 
 private:
