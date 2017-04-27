@@ -50,3 +50,7 @@ target_link_libraries(demo_zmq tinyworld protobuf zmq)
 add_executable(demo_rpc demo_rpc.cpp ${PB_CPPOUTS})
 target_link_libraries(demo_rpc tinyworld protobuf zmq)
 
+
+add_executable(demo_tt demo_tt.cpp ${PB_CPPOUTS})
+target_link_libraries(demo_tt tinyworld protobuf zmq)
+

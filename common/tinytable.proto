@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+package tt;
+
+message GetRequest {
+    optional bytes type = 1;
+    optional bytes keys = 2;
+}
+
+message GetReply {
+    optional bytes type = 1;
+    optional bytes keys = 2;
+    optional bytes value = 3;
+}

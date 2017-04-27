@@ -240,7 +240,7 @@ public:
 
     size_t checkTimeout() { return rpc_emitter_.checkTimeout(); }
 
-private:
+protected:
     RPCEmitter rpc_emitter_;
 
     MessageNameDispatcher<> msg_dispatcher_instance_;
