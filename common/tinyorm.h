@@ -8,6 +8,7 @@
 #include <memory>
 #include "tinyreflection.h"
 #include "tinyserializer.h"
+#include "tinyserializer_proto.h"
 
 enum class FieldType : uint8_t {
     INT8,
@@ -120,13 +121,13 @@ public:
     TableDescriptor(const std::string &name)
             : TableDescriptorBase(name), reflection(name) {}
 
-    template<typename PropType>
+    template<template<typename> class SerializerT = ProtoSerializer, typename PropType>
     TableDescriptor<T> &field(PropType T::* prop,
                               const std::string &name,
                               FieldType type,
                               const std::string &deflt = "",
                               size_t size = 0) {
-        reflection.property(name, prop);
+        reflection.template property<SerializerT>(name, prop);
         TableDescriptorBase::field(name, type, deflt, size);
         return *this;
     }

@@ -36,27 +36,6 @@ add_definitions(-DCATCH_PLATFORM_WINDOWS)
 add_executable(test_logger test_logger.cpp)
 target_link_libraries(test_logger log4cxx apr-1 aprutil-1 iconv)
 
-
-#
-#  SOCI ? Mysql++ ?
-#
-set(USE_ORM_SOCI 0)
-set(ORM_LIBS "")
-if (USE_ORM_SOCI)
-    include_directories(/usr/local/include/soci
-            /usr/local/include/soci/mysql
-            /usr/include/mysq)
-    link_directories(/usr/local/lib64)
-
-    set(ORM_LIBS soci_core soci_mysql)
-else ()
-    add_definitions(-DUSE_ORM_MYSQLPP)
-    set(ORM_LIBS mysqlpp)
-endif ()
-
-add_executable(test_orm test_orm.cpp)
-target_link_libraries(test_orm tinyworld ${ORM_LIBS})
-
 add_executable(test_serialize test_serialize.cpp ../example/player.pb.cc)
 target_link_libraries(test_serialize tinyworld protobuf)
 

@@ -29,6 +29,24 @@ set(LIBS
 set(LIBS_BOOST boost_system boost_thread)
 set(LIBS_MYSQL mysqlpp mysqlclient z ssl crypto)
 
+
+#
+#  SOCI ? Mysql++ ?
+#
+set(USE_ORM_SOCI 0)
+set(ORM_LIBS "")
+if (USE_ORM_SOCI)
+    include_directories(/usr/local/include/soci
+            /usr/local/include/soci/mysql
+            /usr/include/mysq)
+    link_directories(/usr/local/lib64)
+
+    set(ORM_LIBS soci_core soci_mysql)
+else ()
+    add_definitions(-DUSE_ORM_MYSQLPP)
+    set(ORM_LIBS mysqlpp)
+endif ()
+
 message("COMPILER:   ${CMAKE_CXX_COMPILER}")
 message("CXXFLAGS: ${CMAKE_CXX_FLAGS}")
 message("LDFLAGS : ${CMAKE_EXE_LINKER_FLAGS}")

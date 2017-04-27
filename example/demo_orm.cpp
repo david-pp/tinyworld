@@ -1,7 +1,5 @@
 //ODB: C++ Object-Relational Mapping (ORM)
 
-//#define USE_ORM_MYSQLPP
-
 #include <iostream>
 #include <unordered_map>
 #include <vector>
@@ -18,7 +16,7 @@
 # include "tinyorm_soci.h"
 #endif
 
-#include "test_orm.h"
+#include "player.h"
 
 void test_create() {
     TinyORM db;
@@ -76,6 +74,7 @@ void test_insertDB() {
     TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
+        p.init();
         p.id = i;
         p.age = 30;
         p.name = "david-insert-" + std::to_string(i);
@@ -87,6 +86,7 @@ void test_replaceDB() {
     TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
+        p.init();
         p.id = i;
         p.age = 30;
         p.name = "david-replace-" + std::to_string(i);
@@ -98,6 +98,7 @@ void test_updateDB() {
     TinyORM db;
     for (uint32_t i = 0; i < 10; ++i) {
         Player p;
+        p.init();
         p.id = i;
         p.age = 30;
         p.name = "david-update-" + std::to_string(i);
@@ -300,8 +301,6 @@ int main(int argc, const char *argv[]) {
         test_delete();
     else if ("obj2db" == op)
         test_obj2db();
-//    else if ("testsuper" == op)
-//        test_super();
 
     return 0;
 }
