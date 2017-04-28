@@ -4,7 +4,7 @@ package tt;
 
 message GetRequest {
     optional bytes type = 1;
-    optional bytes keys = 2;
+    optional bytes key = 2;
 }
 
 message GetReply {
@@ -12,4 +12,26 @@ message GetReply {
     optional bytes keys = 2;
     optional uint32 retcode = 3;
     optional bytes value = 4;
+}
+
+
+message Set {
+    optional bytes type = 1;
+    optional bytes value = 4;
+}
+
+message SetReply {
+    optional bytes type = 1;
+    optional uint32 retcode = 2;
+}
+
+message Del {
+    optional bytes type = 1;
+    optional bytes key = 2;
+}
+
+message DelReply {
+    optional bytes type = 1;
+    optional bytes key = 2;
+    optional uint32 retcode = 3;
 }

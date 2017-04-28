@@ -12,6 +12,7 @@
 void demo_client() {
     TableClient tc;
 
+    uint32_t count = 0;
     bool done = true;
     try {
         tc.connect("tcp://localhost:5555");
@@ -19,18 +20,32 @@ void demo_client() {
             tc.poll(1000);
             tc.checkTimeout();
 
-            tc.get<Player>(9)
+            tc.get<Player>(9, 10000)
                     .done([](const Player &p) {
-                        LOG_DEBUG("tinytable", "done");
+                        LOG_DEBUG("tinytable", "get-done");
                         std::cout << p << std::endl;
                     })
                     .timeout([](uint32_t key) {
-                        LOG_DEBUG("tinytable", "timeout");
+                        LOG_DEBUG("tinytable", "get-timeout");
                     })
                     .nonexist([](uint32_t key) {
-                        LOG_DEBUG("tinytable", "nonexist");
+                        LOG_DEBUG("tinytable", "get-nonexist");
+                    });
+//
+            Player p;
+            p.init();
+            p.id = 101;
+            p.age = ++count;
+            tc.set<Player>(p, 10000)
+                    .done([](const Player &p) {
+                        LOG_DEBUG("tinytable", "set okay");
                     });
 
+            tc.del<Player>(101, 10000)
+                    .done([](uint32_t key) {
+                        LOG_DEBUG("tinytable", "del okay:%u", key);
+                    });
+//
             std::chrono::milliseconds ms(1000);
             std::this_thread::sleep_for(ms);
         }
@@ -44,13 +59,13 @@ void demo_server() {
     AsyncRPCServer<ZMQAsyncServer> server;
 
     server.on<tt::GetRequest, tt::GetReply>([](const tt::GetRequest &req) {
-        LOGGER_DEBUG("SERVER", req.ShortDebugString());
+        LOGGER_DEBUG("SERVER-GET", req.ShortDebugString());
 
         tt::GetReply reply;
         reply.set_type(req.type());
 
         Player p;
-        deserialize(p.id, req.keys());
+        deserialize(p.id, req.key());
 //        p.init();
 
         TinyORM db;
@@ -60,6 +75,35 @@ void demo_server() {
         } else
             reply.set_retcode(1);
         return reply;
+    }).on<tt::Set, tt::SetReply>([](const tt::Set &req) {
+        LOGGER_DEBUG("SERVER-SET", req.ShortDebugString());
+
+        tt::SetReply rep;
+        rep.set_type(req.type());
+
+        Player p;
+        if (deserialize(p, req.value())) {
+            TinyORM db;
+            if (db.replace(p)) {
+                rep.set_retcode(0);
+            } else
+                rep.set_retcode(1);
+        }
+        return rep;
+    }).on<tt::Del, tt::DelReply>([](const tt::Del &req) {
+        LOGGER_DEBUG("SERVER-DEL", req.ShortDebugString());
+
+        Player::TableKey key;
+        deserialize(key, req.key());
+
+        Player p;
+        p.id = key;
+        TinyMySqlORM db;
+        db.del(p);
+
+        tt::DelReply rep;
+        rep.set_retcode(0);
+        return rep;
     });
 
     bool done = true;
@@ -67,8 +111,8 @@ void demo_server() {
 //        ZMQServer server;
         server.bind("tcp://*:5555");
         while (done) {
-            server.poll(1000);
-            LOGGER_DEBUG("SERVER", "idle ...")
+            server.poll();
+//            LOGGER_DEBUG("SERVER", "idle ...")
         }
     }
     catch (std::exception &e) {
