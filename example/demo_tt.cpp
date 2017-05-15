@@ -8,44 +8,52 @@
 #include "zmq_server.h"
 
 #include "player.h"
+#include "command.pb.h"
 
 void demo_client() {
     TableClient tc;
 
-    uint32_t count = 0;
+//    uint32_t count = 0;
     bool done = true;
     try {
         tc.connect("tcp://localhost:5555");
         while (done) {
             tc.poll(1000);
             tc.checkTimeout();
-
-            tc.get<Player>(9, 10000)
-                    .done([](const Player &p) {
-                        LOG_DEBUG("tinytable", "get-done");
-                        std::cout << p << std::endl;
-                    })
-                    .timeout([](uint32_t key) {
-                        LOG_DEBUG("tinytable", "get-timeout");
-                    })
-                    .nonexist([](uint32_t key) {
-                        LOG_DEBUG("tinytable", "get-nonexist");
-                    });
 //
-            Player p;
-            p.init();
-            p.id = 101;
-            p.age = ++count;
-            tc.set<Player>(p, 10000)
-                    .done([](const Player &p) {
-                        LOG_DEBUG("tinytable", "set okay");
-                    });
-
-            tc.del<Player>(101, 10000)
-                    .done([](uint32_t key) {
-                        LOG_DEBUG("tinytable", "del okay:%u", key);
-                    });
+//            tc.get<Player>(9, 10000)
+//                    .done([](const Player &p) {
+//                        LOG_DEBUG("tinytable", "get-done");
+//                        std::cout << p << std::endl;
+//                    })
+//                    .timeout([](uint32_t key) {
+//                        LOG_DEBUG("tinytable", "get-timeout");
+//                    })
+//                    .nonexist([](uint32_t key) {
+//                        LOG_DEBUG("tinytable", "get-nonexist");
+//                    });
 //
+//            Player p;
+//            p.init();
+//            p.id = 101;
+//            p.age = ++count;
+//            tc.set<Player>(p, 10000)
+//                    .done([](const Player &p) {
+//                        LOG_DEBUG("tinytable", "set okay");
+//                    });
+//
+//            tc.del<Player>(101, 10000)
+//                    .done([](uint32_t key) {
+//                        LOG_DEBUG("tinytable", "del okay:%u", key);
+//                    });
+
+            tc.load<Player>(1000)
+                    .done([](const std::vector<Player> &players) {
+                        LOG_DEBUG("tinytable", "------------");
+                        for (auto &p : players)
+                            LOG_DEBUG("tinytable", "%s", p.name.c_str());
+                    });
+////
             std::chrono::milliseconds ms(1000);
             std::this_thread::sleep_for(ms);
         }
@@ -104,6 +112,19 @@ void demo_server() {
         tt::DelReply rep;
         rep.set_retcode(0);
         return rep;
+    }).on<tt::LoadRequest, tt::LoadReply>([](const tt::LoadRequest &request) {
+        TinyORM db;
+        std::vector<Player> players;
+        db.loadFromDB<Player>([&players](std::shared_ptr<Player> record) {
+            players.push_back(*record.get());
+            std::cout << record->name << std::endl;
+        }, NULL);
+
+        tt::LoadReply reply;
+        reply.set_type(request.type());
+        reply.set_values(serialize(players));
+
+        return reply;
     });
 
     bool done = true;

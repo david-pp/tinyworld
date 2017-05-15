@@ -2,6 +2,9 @@ syntax = "proto2";
 
 package tt;
 
+//
+// get/set/del single data item
+//
 message GetRequest {
     optional bytes type = 1;
     optional bytes key = 2;
@@ -9,14 +12,14 @@ message GetRequest {
 
 message GetReply {
     optional bytes type = 1;
-    optional bytes keys = 2;
+    optional bytes key = 2;
     optional uint32 retcode = 3;
     optional bytes value = 4;
 }
 
-
 message Set {
     optional bytes type = 1;
+    optional bytes key = 2;
     optional bytes value = 4;
 }
 
@@ -34,4 +37,19 @@ message DelReply {
     optional bytes type = 1;
     optional bytes key = 2;
     optional uint32 retcode = 3;
+}
+
+//
+// load bulk data items from cache/db
+//
+message LoadRequest {
+    optional bytes type = 1;
+    optional bool direct = 2; // true-db; false-cache;
+    optional bool cacheit = 3;
+    optional bytes where = 4;
+}
+
+message LoadReply {
+    optional bytes type = 1;
+    optional bytes values = 2;
 }
