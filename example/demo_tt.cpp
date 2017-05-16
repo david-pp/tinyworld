@@ -1,5 +1,6 @@
 #include <iostream>
-#include "tinytable.h"
+#include "tinytable_client.h"
+#include "tinytable_server.h"
 
 #include "tinyorm.h"
 # include "tinyorm_mysql.h"
@@ -21,17 +22,16 @@ void demo_client() {
             tc.poll(1000);
             tc.checkTimeout();
 //
-//            tc.get<Player>(9, 10000)
-//                    .done([](const Player &p) {
-//                        LOG_DEBUG("tinytable", "get-done");
-//                        std::cout << p << std::endl;
-//                    })
-//                    .timeout([](uint32_t key) {
-//                        LOG_DEBUG("tinytable", "get-timeout");
-//                    })
-//                    .nonexist([](uint32_t key) {
-//                        LOG_DEBUG("tinytable", "get-nonexist");
-//                    });
+            tc.get<Player>(9, 10000)
+                    .done([](const Player &p) {
+                        LOGGER_DEBUG("tinytable", "get-done : " << p.name);
+                    })
+                    .timeout([](uint32_t key) {
+                        LOG_DEBUG("tinytable", "get-timeout");
+                    })
+                    .nonexist([](uint32_t key) {
+                        LOG_DEBUG("tinytable", "get-nonexist");
+                    });
 //
 //            Player p;
 //            p.init();
@@ -47,12 +47,12 @@ void demo_client() {
 //                        LOG_DEBUG("tinytable", "del okay:%u", key);
 //                    });
 
-            tc.load<Player>(1000)
-                    .done([](const std::vector<Player> &players) {
-                        LOG_DEBUG("tinytable", "------------");
-                        for (auto &p : players)
-                            LOG_DEBUG("tinytable", "%s", p.name.c_str());
-                    });
+//            tc.load<Player>(1000)
+//                    .done([](const std::vector<Player> &players) {
+//                        LOG_DEBUG("tinytable", "------------");
+//                        for (auto &p : players)
+//                            LOG_DEBUG("tinytable", "%s", p.name.c_str());
+//                    });
 ////
             std::chrono::milliseconds ms(1000);
             std::this_thread::sleep_for(ms);
@@ -63,55 +63,27 @@ void demo_client() {
     }
 }
 
+
 void demo_server() {
     AsyncRPCServer<ZMQAsyncServer> server;
 
-    server.on<tt::GetRequest, tt::GetReply>([](const tt::GetRequest &req) {
-        LOGGER_DEBUG("SERVER-GET", req.ShortDebugString());
+    TinyTable<Player> tt_player;
 
+    server.on<tt::Get, tt::GetReply>([&tt_player](const tt::Get &req) {
         tt::GetReply reply;
-        reply.set_type(req.type());
-
-        Player p;
-        deserialize(p.id, req.key());
-//        p.init();
-
-        TinyORM db;
-        if (db.select(p)) {
-            reply.set_value(serialize(p));
-            reply.set_retcode(0);
-        } else
-            reply.set_retcode(1);
+        tt_player.processGet(req, reply);
         return reply;
-    }).on<tt::Set, tt::SetReply>([](const tt::Set &req) {
-        LOGGER_DEBUG("SERVER-SET", req.ShortDebugString());
 
-        tt::SetReply rep;
-        rep.set_type(req.type());
+    }).on<tt::Set, tt::SetReply>([&tt_player](const tt::Set &req) {
+        tt::SetReply reply;
+        tt_player.proceeSet(req, reply);
+        return reply;
 
-        Player p;
-        if (deserialize(p, req.value())) {
-            TinyORM db;
-            if (db.replace(p)) {
-                rep.set_retcode(0);
-            } else
-                rep.set_retcode(1);
-        }
-        return rep;
-    }).on<tt::Del, tt::DelReply>([](const tt::Del &req) {
-        LOGGER_DEBUG("SERVER-DEL", req.ShortDebugString());
+    }).on<tt::Del, tt::DelReply>([&tt_player](const tt::Del &req) {
+        tt::DelReply reply;
+        tt_player.proceeDel(req, reply);
+        return reply;
 
-        Player::TableKey key;
-        deserialize(key, req.key());
-
-        Player p;
-        p.id = key;
-        TinyMySqlORM db;
-        db.del(p);
-
-        tt::DelReply rep;
-        rep.set_retcode(0);
-        return rep;
     }).on<tt::LoadRequest, tt::LoadReply>([](const tt::LoadRequest &request) {
         TinyORM db;
         std::vector<Player> players;

@@ -5,7 +5,7 @@ package tt;
 //
 // get/set/del single data item
 //
-message GetRequest {
+message Get {
     optional bytes type = 1;
     optional bytes key = 2;
 }

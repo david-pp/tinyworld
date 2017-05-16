@@ -25,10 +25,10 @@ template<typename T>
 TableGetHandler<T> &TableGetHandler<T>::done(const DoneCallback &callback) {
     cb_done_ = callback;
 
-    tt::GetRequest request;
+    tt::Get request;
     request.set_type(TableMeta<T>::name());
     request.set_key(serialize(key_));
-    client_->emit<tt::GetRequest, tt::GetReply>(request)
+    client_->emit<tt::Get, tt::GetReply>(request)
             .done(std::bind(&TableGetHandler::rpc_done, this, std::placeholders::_1))
             .timeout(std::bind(&TableGetHandler::rpc_timeout, this, std::placeholders::_1), timeout_ms_)
             .error(std::bind(&TableGetHandler::rpc_error, this, std::placeholders::_1, std::placeholders::_2));
@@ -52,7 +52,7 @@ void TableGetHandler<T>::rpc_done(const tt::GetReply &reply) {
 }
 
 template<typename T>
-void TableGetHandler<T>::rpc_timeout(const tt::GetRequest &request) {
+void TableGetHandler<T>::rpc_timeout(const tt::Get &request) {
     if (cb_timeout_) {
         KeyT key;
         cb_timeout_(key);
@@ -61,7 +61,7 @@ void TableGetHandler<T>::rpc_timeout(const tt::GetRequest &request) {
 }
 
 template<typename T>
-void TableGetHandler<T>::rpc_error(const tt::GetRequest &, rpc::ErrorCode errorCode) {
+void TableGetHandler<T>::rpc_error(const tt::Get &, rpc::ErrorCode errorCode) {
     std::cout << rpc::ErrorCode_Name(errorCode) << std::endl;
     client_->removeHandler(this->id());
 }
