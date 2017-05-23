@@ -65,43 +65,15 @@ void demo_client() {
 
 
 void demo_server() {
-    AsyncRPCServer<ZMQAsyncServer> server;
 
-    TinyTable<Player> tt_player;
+//    TinyTableFactory::instance().dbTable<Player>();
+//    TinyTableFactory::instance().memTable<Player>();
+    TinyTableFactory::instance().cacheTable<Player>();
+    TinyTableFactory::instance().connectDB("mysql://david:123456@127.0.0.1/tinyworld");
 
-    server.on<tt::Get, tt::GetReply>([&tt_player](const tt::Get &req) {
-        tt::GetReply reply;
-        tt_player.processGet(req, reply);
-        return reply;
-
-    }).on<tt::Set, tt::SetReply>([&tt_player](const tt::Set &req) {
-        tt::SetReply reply;
-        tt_player.proceeSet(req, reply);
-        return reply;
-
-    }).on<tt::Del, tt::DelReply>([&tt_player](const tt::Del &req) {
-        tt::DelReply reply;
-        tt_player.proceeDel(req, reply);
-        return reply;
-
-    }).on<tt::LoadRequest, tt::LoadReply>([](const tt::LoadRequest &request) {
-        TinyORM db;
-        std::vector<Player> players;
-        db.loadFromDB<Player>([&players](std::shared_ptr<Player> record) {
-            players.push_back(*record.get());
-            std::cout << record->name << std::endl;
-        }, NULL);
-
-        tt::LoadReply reply;
-        reply.set_type(request.type());
-        reply.set_values(serialize(players));
-
-        return reply;
-    });
-
+    TableServer server;
     bool done = true;
     try {
-//        ZMQServer server;
         server.bind("tcp://*:5555");
         while (done) {
             server.poll();
@@ -119,13 +91,43 @@ int main(int argc, const char *argv[]) {
         return 0;
     }
 
-    MySqlConnectionPool::instance().connect("mysql://david:123456@127.0.0.1/tinyworld");
-
     std::string op = argv[1];
-
     if ("client" == op) {
         demo_client();
     } else if ("server" == op) {
         demo_server();
     }
 }
+
+
+//    TinyTable<Player> tt_player(&MySqlConnectionPool::instance());
+//
+//    server.on<tt::Get, tt::GetReply>([&tt_player](const tt::Get &req) {
+//        tt::GetReply reply;
+//        tt_player.processGet(req, reply);
+//        return reply;
+//
+//    }).on<tt::Set, tt::SetReply>([&tt_player](const tt::Set &req) {
+//        tt::SetReply reply;
+//        tt_player.proceeSet(req, reply);
+//        return reply;
+//
+//    }).on<tt::Del, tt::DelReply>([&tt_player](const tt::Del &req) {
+//        tt::DelReply reply;
+//        tt_player.proceeDel(req, reply);
+//        return reply;
+//
+//    }).on<tt::LoadRequest, tt::LoadReply>([](const tt::LoadRequest &request) {
+//        TinyORM db;
+//        std::vector<Player> players;
+//        db.loadFromDB<Player>([&players](std::shared_ptr<Player> record) {
+//            players.push_back(*record.get());
+//            std::cout << record->name << std::endl;
+//        }, NULL);
+//
+//        tt::LoadReply reply;
+//        reply.set_type(request.type());
+//        reply.set_values(serialize(players));
+//
+//        return reply;
+//    });

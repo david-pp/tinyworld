@@ -276,7 +276,7 @@ private:
     uint64_t total_id_ = 0;
 };
 
-#include "tinytable.in.h"
+#include "tinytable_client.in.h"
 
 TINY_NAMESPACE_END
 

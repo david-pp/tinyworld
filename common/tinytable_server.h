@@ -33,131 +33,98 @@
 
 TINY_NAMESPACE_BEGIN
 
+class TinyTableFactory;
+
 class TinyTableBase {
 public:
+    TinyTableBase(const std::string &name, MySqlConnectionPool *pool)
+            : name_(name), db_pool_(pool) {}
+
     virtual bool processGet(const tt::Get &request, tt::GetReply &reply) = 0;
 
     virtual bool proceeSet(const tt::Set &request, tt::SetReply &reply) = 0;
 
     virtual bool proceeDel(const tt::Del &request, tt::DelReply &reply) = 0;
 
+    const std::string &name() { return name_; }
+
+    MySqlConnectionPool *dbpool() { return db_pool_; }
+
+    template<typename T>
+    static void setObjectKey(std::shared_ptr<T> object, const typename TableMeta<T>::KeyType &key) {
+        TableMeta<T>::setTableKey(*object.get(), key);
+    }
+
+    template<typename T>
+    static typename TableMeta<T>::KeyType getObjectKey(std::shared_ptr<T> object) {
+        return TableMeta<T>::tableKey(*object.get());
+    }
+
 protected:
     std::string name_;
+    MySqlConnectionPool *db_pool_;
 };
 
 typedef std::shared_ptr<TinyTableBase> TinyTablePtr;
 
+
 template<typename T>
-class TinyTable : public TinyTableBase {
+class TinyDBTable : public TinyTableBase {
 public:
     typedef typename TableMeta<T>::KeyType KeyType;
     typedef std::shared_ptr<T> ObjectPtr;
 
-    bool processGet(const tt::Get &request, tt::GetReply &reply) final {
-        LOGGER_DEBUG("TinyTable", "GET:" << name_ << ":" << request.ShortDebugString());
+    TinyDBTable(const std::string &name, MySqlConnectionPool *pool)
+            : TinyTableBase(name, pool) {}
 
-        reply.set_type(request.type());
-        reply.set_key(request.key());
+    bool processGet(const tt::Get &request, tt::GetReply &reply) final;
 
-        KeyType key;
-        if (!deserialize(key, request.key())) {
-            reply.set_retcode(11);
-            return false;
-        }
+    bool proceeSet(const tt::Set &request, tt::SetReply &reply) final;
 
-        auto memobj = getObjectInMemory(key);
+    bool proceeDel(const tt::Del &request, tt::DelReply &reply) final;
+};
 
-        if (memobj) {  // hit
-            LOGGER_DEBUG("TinyTable", "GET:" << name_ << ":" << "HIT!!");
 
-            reply.set_value(serialize(*memobj.get()));
-            reply.set_retcode(0);
-            return true;
-        } else { // miss
-            LOGGER_DEBUG("TinyTable", "GET:" << name_ << ":" << "MISS!!");
+template<typename T>
+class TinyMemTable : public TinyTableBase {
+public:
+    typedef typename TableMeta<T>::KeyType KeyType;
+    typedef std::shared_ptr<T> ObjectPtr;
 
-            ObjectPtr newobj = std::make_shared<T>();
-            setKey(newobj, key);
+    TinyMemTable(const std::string &name, MySqlConnectionPool *pool)
+            : TinyTableBase(name, pool) {}
 
-            TinyORM db;
-            if (db.select(*newobj.get())) {
-                reply.set_value(serialize(*newobj.get()));
-                reply.set_retcode(0);
-                items_.insert(std::make_pair(getKey(newobj), newobj));
-                return true;
-            } else {
-                reply.set_retcode(1);
-                return false;
-            }
-        }
-        return true;
+    ObjectPtr getObjectInMemory(const KeyType &key) {
+        auto it = items_.find(key);
+        if (it != items_.end())
+            return it->second;
+        return nullptr;
     }
 
-    bool proceeSet(const tt::Set &request, tt::SetReply &reply) final {
-        LOGGER_DEBUG("TinyTable", "SET:" << name_ << ":" << request.ShortDebugString());
+    bool processGet(const tt::Get &request, tt::GetReply &reply) final;
 
-        reply.set_type(request.type());
+    bool proceeSet(const tt::Set &request, tt::SetReply &reply) final;
 
-        ObjectPtr newobj = std::make_shared<T>();
-        try {
-            if (!deserialize(*newobj.get(), request.value())) {
-                reply.set_retcode(11);
-                return false;
-            }
-        } catch (const std::exception &e) {
-            LOGGER_ERROR("TinyTable", e.what());
-        }
+    bool proceeDel(const tt::Del &request, tt::DelReply &reply) final;
 
-        auto memobj = getObjectInMemory(getKey(newobj));
-        if (memobj) {
-            items_.erase(getKey(memobj));
-            items_.insert(std::make_pair(getKey(newobj), newobj));
-        }
+private:
+    std::unordered_map<KeyType, ObjectPtr> items_;
+};
 
-        TinyORM db;
-        if (db.replace(*newobj.get())) {
-            reply.set_retcode(0);
-            return true;
-        } else {
-            reply.set_retcode(1);
-            return false;
-        }
-        return true;
-    }
+template<typename T>
+class TinyCacheTable : public TinyTableBase {
+public:
+    typedef typename TableMeta<T>::KeyType KeyType;
+    typedef std::shared_ptr<T> ObjectPtr;
 
-    bool proceeDel(const tt::Del &request, tt::DelReply &reply) final {
+    TinyCacheTable(const std::string &name, MySqlConnectionPool *pool)
+            : TinyTableBase(name, pool) {}
 
-        LOGGER_DEBUG("TinyTable", "DEL:" << name_ << ":" << request.ShortDebugString());
+    bool processGet(const tt::Get &request, tt::GetReply &reply) final;
 
-        reply.set_type(request.type());
-        reply.set_key(request.key());
+    bool proceeSet(const tt::Set &request, tt::SetReply &reply) final;
 
-        KeyType key;
-        if (!deserialize(key, request.key())) {
-            reply.set_retcode(11);
-            return false;
-        }
-
-        ObjectPtr obj = nullptr;
-        ObjectPtr memobj = getObjectInMemory(key);
-        if (memobj) {
-            obj = memobj;
-        } else {
-            obj = std::make_shared<T>();
-            setKey(obj, key);
-        }
-
-        TinyMySqlORM db;
-        if (db.del(*obj.get())) {
-            reply.set_retcode(0);
-            return true;
-        } else {
-            reply.set_retcode(1);
-            return false;
-        }
-
-        return true;
-    }
+    bool proceeDel(const tt::Del &request, tt::DelReply &reply) final;
 
 public:
     ObjectPtr getObjectInMemory(const KeyType &key) {
@@ -179,7 +146,42 @@ private:
     std::unordered_map<KeyType, ObjectPtr> items_;
 };
 
+
 class TinyTableFactory {
+public:
+    static TinyTableFactory &instance() {
+        static TinyTableFactory factory;
+        return factory;
+    }
+
+    void connectDB(const std::string &url) {
+        mysql_.connect(url);
+    }
+
+    template<typename T>
+    TinyTableFactory &dbTable() {
+        std::string name = TableMeta<T>::name();
+        TinyTablePtr ptr = std::make_shared<TinyDBTable<T>>(name, &mysql_);
+        tables_.insert(std::make_pair(name, ptr));
+        return *this;
+    }
+
+    template<typename T>
+    TinyTableFactory &memTable() {
+        std::string name = TableMeta<T>::name();
+        TinyTablePtr ptr = std::make_shared<TinyMemTable<T>>(name, &mysql_);
+        tables_.insert(std::make_pair(name, ptr));
+        return *this;
+    }
+
+    template<typename T>
+    TinyTableFactory &cacheTable(uint32_t expired_ms = static_cast<uint32_t >(-1)) {
+        std::string name = TableMeta<T>::name();
+        TinyTablePtr ptr = std::make_shared<TinyCacheTable<T>>(name, &mysql_);
+        tables_.insert(std::make_pair(name, ptr));
+        return *this;
+    }
+
 public:
     bool processGet(const tt::Get &request, tt::GetReply &reply) {
         auto table = getTableByName(request.type());
@@ -216,9 +218,39 @@ private:
     MySqlConnectionPool mysql_;
 };
 
-class TableServer {
+class TableServer : public AsyncRPCServer<ZMQAsyncServer> {
+public:
+    TableServer(TinyTableFactory *factory = &TinyTableFactory::instance())
+            : factory_(factory) {
+
+        on<tt::Get, tt::GetReply>([this](const tt::Get &request) {
+            tt::GetReply reply;
+            reply.set_type(request.type());
+            reply.set_key(request.key());
+            this->factory_->processGet(request, reply);
+            return reply;
+        });
+
+        on<tt::Set, tt::SetReply>([this](const tt::Set &request) {
+            tt::SetReply reply;
+            reply.set_type(request.type());
+            this->factory_->proceeSet(request, reply);
+            return reply;
+        });
+
+        on<tt::Del, tt::DelReply>([this](const tt::Del &request) {
+            tt::DelReply reply;
+            reply.set_type(request.type());
+            this->factory_->proceeDel(request, reply);
+            return reply;
+        });
+    }
+
+private:
+    TinyTableFactory *factory_ = nullptr;
 };
 
+#include "tinytable_server.in.h"
 
 TINY_NAMESPACE_END
 
