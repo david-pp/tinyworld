@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#!/usr/bin/env bash
 
 source $PWD/tools/tiny-util.sh
 
@@ -18,4 +19,5 @@ OUTPUTDIR=$1
 
 createdir $OUTPUTDIR
 copy_serializer $OUTPUTDIR
+copy_orm $OUTPUTDIR
 copy_licence $OUTPUTDIR
