@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tinyobj>
+    <!--tools/tinyobj.py -o example/tinyobj/ example/tinyobj/tinyplayer.xml-->
+
     <!--<import>tinyplayer.xml</import>-->
     <!--<import>tinyplayer.xml</import>-->
     <!--<import>tinyplayer.xml</import>-->
