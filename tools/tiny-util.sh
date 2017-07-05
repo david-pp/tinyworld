@@ -12,8 +12,8 @@ createdir()
 }
 
 copy() {
-    cp $1 $2
-#    cat $1 | iconv -f utf8 -t gb2312 > $2
+#    cp $1 $2
+    cat $1 | iconv -f utf8 -t gb2312 > $2
     echo "cp $1 $2"
 }
 
@@ -76,10 +76,10 @@ copy_orm()
     copy example/demo_orm.cpp             $OUTPUTDIR/example/demo_orm.cpp
 
     mkdir -p $OUTPUTDIR/example/tinyobj
-    copy example/tinyobj/tinyobj.h       $OUTPUTDIexample/tinyobj/tinyobj.h
-    copy example/tinyobj/tinyobj.cpp     $OUTPUTDIexample/tinyobj/tinyobj.cpp
-    copy example/tinyobj/tinyplayer.xml  $OUTPUTDIexample/tinyobj/tinyplayer.xml
-    copy example/tinyobj/CMakeLists.txt  $OUTPUTDIexample/tinyobj/CMakeLists.txt
+    copy example/tinyobj/tinyobj.h       $OUTPUTDIR/example/tinyobj/tinyobj.h
+    copy example/tinyobj/tinyobj.cpp     $OUTPUTDIR/example/tinyobj/tinyobj.cpp
+    copy example/tinyobj/tinyplayer.xml  $OUTPUTDIR/example/tinyobj/tinyplayer.xml
+    copy example/tinyobj/CMakeLists.txt  $OUTPUTDIR/example/tinyobj/CMakeLists.txt
 
     mkdir -p $OUTPUTDIR/tools
     copy tools/tinyobj.py                $OUTPUTDIR/tools/tinyobj.py
