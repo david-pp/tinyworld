@@ -56,3 +56,5 @@ target_link_libraries(demo_orm tinyworld protobuf ${ORM_LIBS})
 add_executable(demo_tt demo_tt.cpp ${PB_CPPOUTS})
 target_link_libraries(demo_tt tinyworld protobuf zmq ${ORM_LIBS})
 
+add_executable(demo_fsm demo_fsm.cpp)
+
