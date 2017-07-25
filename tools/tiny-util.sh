@@ -12,8 +12,8 @@ createdir()
 }
 
 copy() {
-#    cp $1 $2
-    cat $1 | iconv -f utf8 -t gb2312 > $2
+    cp $1 $2
+#    cat $1 | iconv -f utf8 -t gb2312 > $2
     echo "cp $1 $2"
 }
 
