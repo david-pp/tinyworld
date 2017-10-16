@@ -4,7 +4,7 @@ set(PROTOC /usr/local/bin/protoc)
 set(PROTOS_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(PROTOS_CPPOUT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-file(GLOB_RECURSE PROTOS *.proto)
+file(GLOB PROTOS *.proto)
 
 #message("${PROTOS}")
 
