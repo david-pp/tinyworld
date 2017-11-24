@@ -1,53 +1,79 @@
+// Copyright (c) 2017 david++
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+
 #ifndef __COMMON_EVENT_LOOP_H
 #define __COMMON_EVENT_LOOP_H
 
+#include <list>
+#include <memory>
+#include <functional>
 #include <ev.h>
 
-class EventLoop;
+namespace tiny {
 
-struct TimerEvent
-{
-public:
-	friend class EventLoop;
+typedef std::function<void()> EventCallback;
 
-	virtual void called() = 0;
-
-private:
-	struct ev_timer ev_;
+struct EventHolderBase {
+    virtual void called() = 0;
 };
 
-struct IdleEvent
-{
-public:
-	friend class EventLoop;
+typedef std::shared_ptr<EventHolderBase> EventHolderPtr;
 
-	virtual void called() = 0;
+template<typename EventType>
+struct EventHolder : public EventHolderBase {
+    EventHolder(const EventCallback &callback)
+            : callback(callback) {}
 
-private:
-	struct ev_idle ev_;
+    void called() override {
+        if (callback) callback();
+    }
+
+    EventType event;
+    EventCallback callback;
 };
 
-class EventLoop
-{
+class EventLoop {
 public:
-	EventLoop(bool default_= true);
+    EventLoop(bool default_ = true);
 
-	static EventLoop* instance()
-	{
-		static EventLoop loop;
-		return &loop;
-	}
+    static EventLoop *instance() {
+        static EventLoop loop;
+        return &loop;
+    }
 
-	void regIdle(IdleEvent* ev);
-	void regTimer(TimerEvent* ev, ev_tstamp repeat, ev_tstamp after = 0.0);
+    EventLoop &onIdle(const EventCallback &callback);
 
-	void loop();
+    EventLoop &onTimer(const EventCallback &callback, ev_tstamp repeat, ev_tstamp after = 0.0);
 
-	struct ev_loop* evLoop() { return evloop_; }
+    void run();
+
+public:
+    struct ev_loop *evLoop() { return evloop_; }
 
 private:
-	struct ev_loop* evloop_;
-	struct ev_idle  evidle_;
+    struct ev_loop *evloop_;
+
+    std::list<EventHolderPtr> holders_;
 };
+
+} // namespace tiny
 
 #endif // __COMMON_EVENT_LOOP_H

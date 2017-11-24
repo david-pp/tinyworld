@@ -58,3 +58,6 @@ target_link_libraries(demo_tt tinyworld protobuf zmq ${ORM_LIBS})
 
 add_executable(demo_fsm demo_fsm.cpp)
 
+add_executable(demo_redis demo_redis.cpp)
+target_link_libraries(demo_redis tinyworld ev hiredis)
+
