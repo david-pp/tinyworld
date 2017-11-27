@@ -23,6 +23,7 @@
 #define TINYWORLD_ASYNC_H
 
 #include <map>
+#include <vector>
 #include <unordered_map>
 #include <memory>
 #include <chrono>
@@ -33,15 +34,47 @@ namespace tiny {
 
 class AsyncTask;
 
+class SerialsTask;
+
+class ParallelTask;
+
 class AsyncScheduler;
 
 typedef std::shared_ptr<AsyncTask> AsyncTaskPtr;
 
-class AsyncTask {
+class AsyncTask : public std::enable_shared_from_this<AsyncTask> {
 public:
     friend class AsyncScheduler;
 
+    friend class SerialsTask;
+
+    friend class ParallelTask;
+
+    static AsyncTaskPtr P(const std::vector<AsyncTaskPtr> &children, const std::function<void()> &done);
+
+    static AsyncTaskPtr S(const std::vector<AsyncTaskPtr> &children, const std::function<void()> &done);
+
+    template<typename TaskT>
+    static AsyncTaskPtr T(const std::function<void(std::shared_ptr<TaskT>)> &done) {
+        auto task = std::make_shared<TaskT>();
+        task->on_done_ = [done, task]() {
+            done(task);
+        };
+        return task;
+    }
+
+public:
     AsyncTask();
+
+    AsyncTask(AsyncScheduler *scheduler) : AsyncTask() {
+        scheduler_ = scheduler;
+    }
+
+    AsyncTask(const std::function<void()> &on_call, const std::function<void()> &on_done)
+            : AsyncTask() {
+        on_call_ = on_call;
+        on_done_ = on_done;
+    }
 
     uint32_t elapsed_ms() const;
 
@@ -49,14 +82,16 @@ public:
 
     bool isNeverTimeout() const;
 
-//    void setChildren(const PtrArray &rpcs);
+    uint64_t id() const { return id_; }
+
+    void emit(AsyncTaskPtr task);
 
 public:
     virtual ~AsyncTask();
 
     virtual void call();
 
-    virtual void done();
+    virtual void done(void *data);
 
     virtual void timeout();
 
@@ -65,6 +100,9 @@ public:
     virtual void child_done(AsyncTaskPtr child) {}
 
     virtual void child_timeout(AsyncTaskPtr child) {}
+
+protected:
+    void on_emit(AsyncScheduler *scheduler);
 
 protected:
     // Identifier
@@ -87,6 +125,43 @@ protected:
     std::function<void()> on_done_;
     std::function<void()> on_timeout_;
     std::function<void()> on_cancel_;
+};
+
+class SerialsTask : public AsyncTask {
+public:
+    virtual ~SerialsTask();
+
+    void call() override;
+
+    void done(void *data) override;
+
+    void timeout() override;
+
+    void cancel() override;
+
+    void child_done(AsyncTaskPtr child) override;
+
+    void child_timeout(AsyncTaskPtr child) override;
+
+protected:
+    void triggerFirstCall();
+};
+
+class ParallelTask : public AsyncTask {
+public:
+    virtual ~ParallelTask();
+
+    void call() override;
+
+    void done(void *data) override;
+
+    void timeout() override;
+
+    void cancel() override;
+
+    void child_done(AsyncTaskPtr child) override;
+
+    void child_timeout(AsyncTaskPtr child) override;
 };
 
 
@@ -122,18 +197,6 @@ public:
 
     void run();
 
-
-//
-//    bool call(AsyncRPC *rpc, const ContextPtr &context, int timeoutms = -1);
-//
-//    bool
-//    callBySerials(SerialsCallBack *rpc, const AsyncRPC::PtrArray &rpcs, const ContextPtr &context, int timeoutms = -1);
-//
-//    bool callByParallel(ParallelCallBack *rpc, const AsyncRPC::PtrArray &rpcs, const ContextPtr &context,
-//                        int timeoutms = -1);
-
-
-
     struct Stat {
         std::atomic<uint64_t> construct = {0};
         std::atomic<uint64_t> destroyed = {0};
@@ -150,10 +213,14 @@ public:
 
     Stat &stat();
 
+    std::string statString();
+
 public:
     void triggerCall(AsyncTaskPtr task);
 
-    void triggerDone(AsyncTaskPtr task);
+    bool triggerDone(uint64_t id, void *data);
+
+    void triggerDone(AsyncTaskPtr task, void *data);
 
     void triggerTimeout(AsyncTaskPtr task);
 
