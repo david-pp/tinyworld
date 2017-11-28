@@ -35,9 +35,9 @@ void RedisCommand<ReplyT>::call() {
     if (redis_ && redis_->submitToServer(id(), cmd_))
         return;
 
-    // TODO: FAILED...
+    // TODO: CANCEL...
     reply_status_ = RedisCmdStatus::send_error;
-    last_error_ = "timeout.";
+    last_error_ = "send error.";
     LOGGER_ERROR("redis", cmd() << ": " << last_error_);
 }
 
@@ -79,8 +79,7 @@ void RedisCommand<ReplyT>::processReply(redisReply *r) {
         reply_status_ = RedisCmdStatus::error;
         last_error_ = "Received null redisReply* from hiredis.";
         LOGGER_ERROR("redis", last_error_);
-
-        //TODO: DISCONNECT...
+        // TODO: CANCEL...
     } else {
         parseReplyObject();
     }

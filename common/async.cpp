@@ -327,9 +327,9 @@ void AsyncScheduler::triggerCancel(AsyncTaskPtr task) {
 
 std::string AsyncScheduler::statString() {
     std::ostringstream oss;
-    oss << "Queue:" << stat_.queue_wait << "," << stat_.queue_wait_by_time
-        << " Task:" << stat_.construct << "," << stat_.destroyed
-        << " Task:" << stat_.call << "," << stat_.done << "," << stat_.timeout << "," << stat_.cancel;
+    oss << "Queue: ready=" << stat_.queue_ready << ", wait=" << stat_.queue_wait
+        << " Task: c=" << stat_.construct << ", d=" << stat_.destroyed
+        << " Emit: call=" << stat_.call << ", done=" << stat_.done << ", timeout=" << stat_.timeout << ", cancel=" << stat_.cancel;
     return oss.str();
 }
 

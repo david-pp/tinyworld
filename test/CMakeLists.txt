@@ -27,7 +27,7 @@ foreach (PB ${PROTOS})
             DEPENDS ${PB})
 endforeach (PB ${PROTOS})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-unused-function")
 
 #add_definitions(-DTINYLOGGER_LOG4CXX)
 
