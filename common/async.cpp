@@ -10,7 +10,6 @@ static std::atomic<uint64_t> s_total_asynctask = {1};
 
 AsyncTask::AsyncTask() {
     createtime_ = std::chrono::high_resolution_clock::now();
-    if (scheduler_) scheduler_->stat_.construct++;
 }
 
 AsyncTask::~AsyncTask() {
@@ -29,6 +28,41 @@ bool AsyncTask::isTimeout() const {
 
 bool AsyncTask::isNeverTimeout() const {
     return timeout_ms_ == static_cast<uint32_t>(-1);
+}
+
+void AsyncTask::emit(AsyncTaskPtr task) {
+    if (scheduler_)
+        scheduler_->emit(task);
+}
+
+void AsyncTask::emit_done() {
+    if (scheduler_)
+        scheduler_->triggerDone(shared_from_this(), nullptr);
+}
+
+bool AsyncTask::addChildByOrder(AsyncTaskPtr task) {
+    if (task) {
+        children_by_order_.push_back(task);
+        task->parent_ = this;
+        return true;
+    }
+
+    return false;
+}
+
+AsyncTaskPtr AsyncTask::on_call(const Callback &callback) {
+    on_call_ = callback;
+    return shared_from_this();
+}
+
+AsyncTaskPtr AsyncTask::on_done(const Callback &callback) {
+    on_done_ = callback;
+    return shared_from_this();
+}
+
+AsyncTaskPtr AsyncTask::on_timeout(const Callback &callback) {
+    on_timeout_ = callback;
+    return shared_from_this();
 }
 
 void AsyncTask::call() {
@@ -89,24 +123,6 @@ void AsyncTask::on_emit(AsyncScheduler *scheduler) {
     }
 }
 
-void AsyncTask::emit(AsyncTaskPtr task) {
-    if (scheduler_)
-        scheduler_->emit(task);
-}
-
-bool AsyncTask::addChildByOrder(AsyncTaskPtr task) {
-    if (task) {
-        children_by_order_.push_back(task);
-        task->parent_ = this;
-        return true;
-    }
-
-    return false;
-}
-
-void AsyncTask::emit_done() {
-    scheduler_->triggerDone(shared_from_this(), nullptr);
-}
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -238,7 +254,6 @@ void AsyncScheduler::emit(AsyncTaskPtr task) {
 }
 
 void AsyncScheduler::run() {
-//    LOGGER_INFO("redis", __PRETTY_FUNCTION__);
 
     stat_.queue_wait = queue_wait_.size();
     stat_.queue_wait_by_time = wait_by_time_.size();
@@ -258,8 +273,8 @@ void AsyncScheduler::run() {
         }
     }
 
-    // Trigger all request (TODO: limit maxnum)
-    if (1) {
+    // Trigger all request
+    if (true) {
 
         std::deque<AsyncTaskPtr> queue_ready;
         {

@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-
 #ifndef TINYWORLD_ASYNC_H
 #define TINYWORLD_ASYNC_H
 
@@ -34,33 +33,40 @@
 namespace tiny {
 
 class AsyncTask;
-
 class SerialsTask;
-
 class ParallelTask;
-
 class AsyncScheduler;
 
 typedef std::shared_ptr<AsyncTask> AsyncTaskPtr;
 
+//
+// Async Task Base Class
+//
 class AsyncTask : public std::enable_shared_from_this<AsyncTask> {
 public:
     friend class AsyncScheduler;
-
     friend class SerialsTask;
-
     friend class ParallelTask;
 
-    static AsyncTaskPtr P(const std::vector<AsyncTaskPtr> &children, const std::function<void()> &done);
+    typedef std::function<void()> Callback;
 
-    static AsyncTaskPtr S(const std::vector<AsyncTaskPtr> &children, const std::function<void()> &done);
+    //
+    // Helper Function: Create a parallel async task with callback.
+    //
+    static AsyncTaskPtr P(const std::vector<AsyncTaskPtr> &children, const std::function<void()> &done = nullptr);
 
+    //
+    // Helper Function: Create a series async task with callback.
+    //
+    static AsyncTaskPtr S(const std::vector<AsyncTaskPtr> &children, const std::function<void()> &done = nullptr);
+
+    //
+    // Helper Function: Create a user-defined async task with callback.
+    //
     template<typename TaskT, typename... ArgTypes>
-    static AsyncTaskPtr T(ArgTypes... args, const std::function<void(std::shared_ptr<TaskT>)> &done) {
+    static AsyncTaskPtr T(ArgTypes... args, const std::function<void(std::shared_ptr<TaskT>)> &done = nullptr) {
         auto task = std::make_shared<TaskT>(args...);
-        task->on_done_ = [done, task]() {
-            done(task);
-        };
+        task->on_done_ = [done, task]() { done(task); };
         return task;
     }
 
@@ -71,45 +77,72 @@ public:
         scheduler_ = scheduler;
     }
 
-    AsyncTask(const std::function<void()> &on_call, const std::function<void()> &on_done)
-            : AsyncTask() {
-        on_call_ = on_call;
-        on_done_ = on_done;
-    }
+    uint64_t id() const { return id_; }
 
     uint32_t elapsed_ms() const;
 
     bool isTimeout() const;
-
     bool isNeverTimeout() const;
 
-    uint64_t id() const { return id_; }
-
+    //
+    // Emit a Task with scheduler_. For Example:
+    //
+    //    struct MyTask : public AsyncTask {
+    //        std::string name;
+    //        int sex = 0;
+    //
+    //        void call() override {
+    //            emit(AsyncTask::P({...},
+    //                              std::bind(&AsyncTask::emit_done, this)));
+    //        }
+    //    };
+    //
     void emit(AsyncTaskPtr task);
+    void emit_done();
 
+    //
+    // Add a sub-task
+    //
     bool addChildByOrder(AsyncTaskPtr task);
+
+    //
+    // Set Callbacks
+    //
+    AsyncTaskPtr on_call(const Callback &callback);
+    AsyncTaskPtr on_done(const Callback &callback);
+    AsyncTaskPtr on_timeout(const Callback &callback);
 
 public:
     virtual ~AsyncTask();
 
+    //
+    // Not necessary except if you want to use the same task twice:
+    //
+    //  auto task = AsyncTask::P({...}, [](){});
+    //  scheduler.emit(task);          // good
+    //  scheduler.emit(task);          // bad.(the same task can't be scheduled twice)
+    //  scheduler.emit(task->clone()); // good
+    //
     virtual AsyncTaskPtr clone() { return nullptr; }
 
+    // Call in the event loop.
     virtual void call();
 
+    // Done when the task is over.
     virtual void done(void *data);
 
+    // Timeout
     virtual void timeout();
 
+    // useless...
     virtual void cancel();
+
+protected:
+    virtual void on_emit(AsyncScheduler *scheduler);
 
     virtual void child_done(AsyncTaskPtr child) {}
 
     virtual void child_timeout(AsyncTaskPtr child) {}
-
-//protected:
-    virtual void on_emit(AsyncScheduler *scheduler);
-
-    void emit_done();
 
 protected:
     // Identifier
@@ -129,6 +162,7 @@ protected:
     // Scheduler
     AsyncScheduler *scheduler_ = nullptr;
 
+    // Callbacks
     std::function<void()> on_call_;
     std::function<void()> on_done_;
     std::function<void()> on_timeout_;
@@ -149,6 +183,7 @@ public:
 
     void cancel() override;
 
+protected:
     void child_done(AsyncTaskPtr child) override;
 
     void child_timeout(AsyncTaskPtr child) override;
@@ -171,6 +206,7 @@ public:
 
     void cancel() override;
 
+protected:
     void child_done(AsyncTaskPtr child) override;
 
     void child_timeout(AsyncTaskPtr child) override;
@@ -209,18 +245,22 @@ public:
 
     void run();
 
+public:
+    //
+    // Statistics of the Scheduler
+    //
     struct Stat {
-        std::atomic<uint64_t> construct = {0};
-        std::atomic<uint64_t> destroyed = {0};
+        std::atomic<uint64_t> construct = {0};          // number of task emitted
+        std::atomic<uint64_t> destroyed = {0};          // number of task destruct
 
-        std::atomic<uint64_t> call = {0};
-        std::atomic<uint64_t> done = {0};
-        std::atomic<uint64_t> timeout = {0};
-        std::atomic<uint64_t> cancel = {0};
+        std::atomic<uint64_t> call = {0};               // number of call
+        std::atomic<uint64_t> done = {0};               // number of done
+        std::atomic<uint64_t> timeout = {0};            // number of timeout
+        std::atomic<uint64_t> cancel = {0};             // number of cancel
 
-        std::atomic<uint64_t> queue_ready = {0};
-        std::atomic<uint64_t> queue_wait = {0};
-        std::atomic<uint64_t> queue_wait_by_time = {0};
+        std::atomic<uint64_t> queue_ready = {0};        // size of ready queue
+        std::atomic<uint64_t> queue_wait = {0};         // size of wait queue
+        std::atomic<uint64_t> queue_wait_by_time = {0}; // size of wait queue sorted by time
     };
 
     Stat &stat();
@@ -246,7 +286,7 @@ protected:
     // Waiting Queue
     std::unordered_map<uint64_t, AsyncTaskPtr> queue_wait_;
 
-    // Waiting Ordered by Create Time
+    // Waiting Queue Ordered by Create Time
     std::multimap<std::chrono::time_point<std::chrono::high_resolution_clock>,
             AsyncTaskPtr> wait_by_time_;
 

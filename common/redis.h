@@ -134,19 +134,18 @@ public:
     int reply_status_;
     std::string last_error_;
 
-protected:
+
     void on_emit(AsyncScheduler *scheduler) override;
 
-    // Explicitly delete copy constructor and assignment operator,
-    // RedisCommand objects should never be copied because they hold
-    // state with a network resource.
+private:
     RedisCommand(const RedisCommand &) = delete;
 
     RedisCommand &operator=(const RedisCommand &) = delete;
 };
 
 template<typename ReplyT>
-AsyncTaskPtr RedisCmd(std::vector<std::string> cmd, const std::function<void(RedisCommand<ReplyT> &)> callback = nullptr) {
+AsyncTaskPtr
+RedisCmd(std::vector<std::string> cmd, const std::function<void(RedisCommand<ReplyT> &)> callback = nullptr) {
     if (cmd.empty())
         return nullptr;
 

@@ -7,6 +7,8 @@ namespace tiny {
 
 template<class ReplyT>
 void RedisCommand<ReplyT>::call() {
+    AsyncTask::call();
+
     if (redis_) {
         redis_->submitToServer(this);
     }
@@ -15,6 +17,7 @@ void RedisCommand<ReplyT>::call() {
 template<class ReplyT>
 void RedisCommand<ReplyT>::done(void *data) {
     processReply((redisReply *) data);
+    AsyncTask::done(data);
 }
 
 template<class ReplyT>

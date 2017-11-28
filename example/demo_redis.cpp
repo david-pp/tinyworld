@@ -154,6 +154,10 @@ void test_redis_1() {
                 } else {
                     std::cerr << "RedisCommand has error code " << c.status() << std::endl;
                 }
+            })->on_call([]() {
+                std::cout << "call" << std::endl;
+            })->on_timeout([]() {
+                std::cout << "timeout" << std::endl;
             }));
 
 //    hmget(redis, "user", [](std::map<std::string, std::string> kvs) {
@@ -161,6 +165,8 @@ void test_redis_1() {
 //            std::cout << it.first << ":" << it.second << std::endl;
 //        }
 //    });
+
+    return;
 
     struct GetUser : public AsyncTask {
 
@@ -183,7 +189,8 @@ void test_redis_1() {
                                RedisCmd<std::string>({"HGET", "user", "sex"},
                                                      [this](RedisCommand<std::string> &c) {
                                                          this->sex = std::atoi(c.reply().c_str());
-                                                         std::cout << this->id << "-P:HGET sex = " << this->sex << std::endl;
+                                                         std::cout << this->id << "-P:HGET sex = " << this->sex
+                                                                   << std::endl;
                                                      }),
                               },
                               std::bind(&AsyncTask::emit_done, this)));
@@ -279,14 +286,14 @@ void test_async() {
         }
     });
 
-    async.emit(std::make_shared<AsyncTask>([&async]() {
-                                               std::cout << "[task] call - start" << std::endl;
-                                               std::this_thread::sleep_for(std::chrono::seconds(randint(0, 5)));
-                                               std::cout << "[task] call - done" << std::endl;
-                                           },
-                                           []() {
-                                               std::cout << "[task] done ..." << std::endl;
-                                           }));
+//    async.emit(std::make_shared<AsyncTask>([&async]() {
+//                                               std::cout << "[task] call - start" << std::endl;
+//                                               std::this_thread::sleep_for(std::chrono::seconds(randint(0, 5)));
+//                                               std::cout << "[task] call - done" << std::endl;
+//                                           },
+//                                           []() {
+//                                               std::cout << "[task] done ..." << std::endl;
+//                                           }));
 
     async_thread.join();
 }
