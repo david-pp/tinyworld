@@ -123,9 +123,11 @@ bool AsyncRedisClient::isConnected() const {
     return context_ && context_->err == 0;
 }
 
-void AsyncRedisClient::checkConnection() {
+bool AsyncRedisClient::checkConnection() {
     if (!isConnected())
-        connect();
+        return connect();
+
+    return true;
 }
 
 void AsyncRedisClient::run() {
@@ -137,6 +139,43 @@ void AsyncRedisClient::close() {
         redisAsyncDisconnect(context_);
         context_ = NULL;
     }
+}
+
+static void redisCommandCallback(redisAsyncContext *ctx, void *r, void *privdata) {
+    AsyncRedisClient *redis = (AsyncRedisClient *) ctx->data;
+    uint64_t id = (uint64_t) privdata;
+    redisReply *reply_obj = (redisReply *) r;
+    if (!redis->triggerDone(id, reply_obj)) {
+        freeReplyObject(reply_obj);
+        return;
+    }
+}
+
+bool AsyncRedisClient::submitToServer(uint64_t taskid, const std::vector<std::string> &cmd) {
+    if (!checkConnection())
+        return false;
+
+    // Construct a char** from the vector
+    std::vector<const char *> argv;
+    std::transform(cmd.begin(), cmd.end(), back_inserter(argv),
+                   [](const std::string &s) {
+                       return s.c_str();
+                   });
+
+    // Construct a size_t* of string lengths from the vector
+    std::vector<size_t> argvlen;
+    std::transform(cmd.begin(), cmd.end(), back_inserter(argvlen),
+                   [](const std::string &s) {
+                       return s.size();
+                   });
+
+    if (redisAsyncCommandArgv(context_, redisCommandCallback, (void *) taskid, argv.size(),
+                              &argv[0], &argvlen[0]) != REDIS_OK) {
+        LOGGER_ERROR("redis", "Could not send \"" << vecToStr(cmd) << "\": " << context_->errstr);
+        return false;
+    }
+
+    return true;
 }
 
 } // namespace tiny

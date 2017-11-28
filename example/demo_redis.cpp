@@ -166,7 +166,7 @@ void test_redis_1() {
 //        }
 //    });
 
-    return;
+//    return;
 
     struct GetUser : public AsyncTask {
 

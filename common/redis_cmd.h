@@ -31,80 +31,93 @@
 #include <hiredis/async.h>
 #include "async.h"
 #include "eventloop.h"
-#include "tinylogger.h"
 
 namespace tiny {
 
 class AsyncRedisClient;
 
+typedef std::vector<std::string> StringVector;
+typedef std::set<std::string> StringSet;
+typedef std::unordered_set<std::string> StringHashSet;
+
 //
-// Redis Command Async Task.
+// Redis Command Status Code
 //
-template<class ReplyT>
+enum RedisCmdStatus : int {
+    no,                      // No reply yet
+    okay,                    // Successful reply of the expected type
+    nil,                     // Got a nil reply
+    error,                   // Could not send to server
+    send_error,              // Could not send to server
+    wrone_type,              // Got reply, but it was not the expected type
+    timeout,                 // No reply, timed out
+};
+
+//
+// Redis Command Async Task. ReplyT can be the following:
+//
+//  - redisReply *
+//  - std::string
+//  - char *
+//  - int/long long int
+//  - uint16_t/uint32_t/uint64_t
+//  - nullptr_t
+//  - StringVector/std::vector<std::string>
+//  - StringSet/std::set<std::string>
+//  - StringHashSet/std::unordered_set<std::string>
+//
+template<typename ReplyT>
 class RedisCommand : public AsyncTask {
 public:
     friend class AsyncRedisClient;
 
-    // Reply codes
-    static const int NO_REPLY = -1;   // No reply yet
-    static const int OK_REPLY = 0;    // Successful reply of the expected type
-    static const int NIL_REPLY = 1;   // Got a nil reply
-    static const int ERROR_REPLY = 2; // Got an error reply
-    static const int SEND_ERROR = 3;  // Could not send to server
-    static const int WRONG_TYPE = 4;  // Got reply, but it was not the expected type
-    static const int TIMEOUT = 5;     // No reply, timed out
-
-public:
-    RedisCommand() {}
-
     RedisCommand(AsyncRedisClient *redis, const std::vector<std::string> &cmd,
                  const std::function<void(RedisCommand<ReplyT> &)> &callback)
-            : redis_(redis),
-              cmd_(cmd), callback_(callback) {
+            : redis_(redis), cmd_(cmd), callback_(callback) {}
 
-    }
+    virtual ~RedisCommand();
 
+    // Clone the Command object
     AsyncTaskPtr clone() override;
 
+    // Submit the Command to Redis Server
     void call() override;
 
+    // Receive the Reply from Redis Server
     void done(void *data) override;
 
-    /**
-    * Returns the reply status of this command.
-    */
-    int status() const { return reply_status_; }
+    // Timeout
+    void timeout() override;
 
+    // scheduler type is AsyncRedisClient
+    void on_emit(AsyncScheduler *scheduler) override;
+
+public:
+    // Returns the reply status of this command.
+    RedisCmdStatus status() const { return reply_status_; }
+
+    // Last error message.
     std::string lastError() const { return last_error_; }
 
-    /**
-    * Returns true if this command got a successful reply.
-    */
-    bool ok() const { return reply_status_ == OK_REPLY; }
+    // Returns true if this command got a successful reply.
+    bool ok() const { return reply_status_ == RedisCmdStatus::okay; }
 
-    /**
-    * Returns the reply value, if the reply was successful (ok() == true).
-    */
+    // Returns the reply value, if the reply was successful (ok() == true).
     ReplyT reply();
 
-    /**
-    * Returns the command string represented by this object.
-    */
+    // Returns the command string represented by this object.
     std::string cmd() const;
 
-
-    // Allow public access to constructed data
-    AsyncRedisClient *redis_ = nullptr;
-
-    // Redis command
-    std::vector<std::string> cmd_;
-
+protected:
     // Handles a new reply from the server
     void processReply(redisReply *r);
 
     // Invoke a user callback from the reply object. This method is specialized
     // for each ReplyT of RedisCommand.
     void parseReplyObject();
+
+    // If needed, free the redisReply
+    void freeReply();
 
     // Directly invoke the user callback if it exists
     void invoke() {
@@ -120,9 +133,15 @@ public:
 
     bool isExpectedReply(int typeA, int typeB);
 
+protected:
+    RedisCommand(const RedisCommand &) = delete;
+    RedisCommand &operator=(const RedisCommand &) = delete;
 
-    // If needed, free the redisReply
-    void freeReply();
+    // Async redis client
+    AsyncRedisClient *redis_ = nullptr;
+
+    // Redis command
+    std::vector<std::string> cmd_;
 
     // The last server reply
     redisReply *reply_obj_ = nullptr;
@@ -132,19 +151,12 @@ public:
 
     // Place to store the reply value and status.
     ReplyT reply_val_;
-    int reply_status_;
+    RedisCmdStatus reply_status_ = RedisCmdStatus::no;
     std::string last_error_;
-
-
-    void on_emit(AsyncScheduler *scheduler) override;
-
-private:
-    RedisCommand(const RedisCommand &) = delete;
-    RedisCommand &operator=(const RedisCommand &) = delete;
 };
 
 template<typename ReplyT>
-AsyncTaskPtr
+inline AsyncTaskPtr
 RedisCmd(std::vector<std::string> cmd, const std::function<void(RedisCommand<ReplyT> &)> callback = nullptr) {
     if (cmd.empty())
         return nullptr;

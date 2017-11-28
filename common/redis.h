@@ -25,7 +25,17 @@
 
 namespace tiny {
 
+//
+// Async Redis Client
+//
 class AsyncRedisClient : public AsyncScheduler {
+public:
+    //
+    // Helper Functions
+    //
+    static std::string vecToStr(const std::vector<std::string> &vec, const char delimiter = ' ');
+    static std::vector<std::string> strToVec(const std::string &s, const char delimiter = ' ');
+
 public:
     AsyncRedisClient(const std::string &ip, int port, EventLoop *loop = EventLoop::instance());
 
@@ -49,57 +59,17 @@ public:
     }
 
 public:
-    void checkConnection();
+    //
+    // Connection Related.
+    //
+    bool checkConnection();
     void onConnected(bool success);
     void onDisconnected(bool success);
 
-    static std::string vecToStr(const std::vector<std::string> &vec, const char delimiter = ' ');
-    static std::vector<std::string> strToVec(const std::string &s, const char delimiter = ' ');
 
-
-    // Submit an asynchronous command to the Redox server. Return
+    // Submit an asynchronous command to the Redis server. Return
     // true if succeeded, false otherwise.
-    template<typename ReplyT>
-    bool submitToServer(RedisCommand<ReplyT> *c) {
-
-        checkConnection();
-
-        // Construct a char** from the vector
-        std::vector<const char *> argv;
-        std::transform(c->cmd_.begin(), c->cmd_.end(), back_inserter(argv),
-                       [](const std::string &s) {
-                           return s.c_str();
-                       });
-
-        // Construct a size_t* of string lengths from the vector
-        std::vector<size_t> argvlen;
-        transform(c->cmd_.begin(), c->cmd_.end(), back_inserter(argvlen),
-                  [](const std::string &s) {
-                      return s.size();
-                  });
-
-        if (redisAsyncCommandArgv(context_, commandCallback < ReplyT > , (void *) c->id_, argv.size(),
-                                  &argv[0], &argvlen[0]) != REDIS_OK) {
-            LOGGER_ERROR("redis", "Could not send \"" << c->cmd() << "\": " << context_->errstr);
-            c->reply_status_ = RedisCommand<ReplyT>::SEND_ERROR;
-            c->invoke();
-            return false;
-        }
-
-        return true;
-    }
-
-    // Callback given to hiredis to invoke when a reply is received
-    template<class ReplyT>
-    static void commandCallback(redisAsyncContext *ctx, void *r, void *privdata) {
-        AsyncRedisClient *redis = (AsyncRedisClient *) ctx->data;
-        uint64_t id = (uint64_t) privdata;
-        redisReply *reply_obj = (redisReply *) r;
-        if (!redis->triggerDone(id, reply_obj)) {
-            freeReplyObject(reply_obj);
-            return;
-        }
-    }
+    bool submitToServer(uint64_t taskid, const std::vector<std::string> &cmd);
 
 private:
     // Redis Async Context
