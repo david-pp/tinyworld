@@ -63,6 +63,8 @@ public:
 
     }
 
+    AsyncTaskPtr clone() override;
+
     void call() override;
 
     void done(void *data) override;
@@ -132,6 +134,9 @@ public:
     int reply_status_;
     std::string last_error_;
 
+protected:
+    void on_emit(AsyncScheduler *scheduler) override;
+
     // Explicitly delete copy constructor and assignment operator,
     // RedisCommand objects should never be copied because they hold
     // state with a network resource.
@@ -140,7 +145,16 @@ public:
     RedisCommand &operator=(const RedisCommand &) = delete;
 };
 
-class AsyncRedisClient {
+template<typename ReplyT>
+AsyncTaskPtr RedisCmd(std::vector<std::string> cmd, const std::function<void(RedisCommand<ReplyT> &)> callback = nullptr) {
+    if (cmd.empty())
+        return nullptr;
+
+    return std::make_shared<RedisCommand<ReplyT>>(nullptr, cmd, callback);
+}
+
+
+class AsyncRedisClient : public AsyncScheduler {
 public:
     AsyncRedisClient(const std::string &ip, int port, EventLoop *loop = EventLoop::instance());
 
@@ -156,7 +170,6 @@ public:
 
     void run();
 
-    AsyncScheduler &scheduler() { return scheduler_; }
 
 //    // RPC MODE
 //    bool call(myredis::RPC *rpc, const ContextPtr &context = ContextPtr(), int timeoutms = -1);
@@ -186,7 +199,7 @@ public:
     template<class ReplyT>
     void cmd(const std::vector<std::string> &cmd,
              const std::function<void(RedisCommand<ReplyT> &)> &callback = nullptr) {
-        scheduler_.emit(Command(cmd, callback));
+        emit(Command(cmd, callback));
     }
 
 //
@@ -244,7 +257,7 @@ public:
         AsyncRedisClient *redis = (AsyncRedisClient *) ctx->data;
         uint64_t id = (uint64_t) privdata;
         redisReply *reply_obj = (redisReply *) r;
-        if (!redis->scheduler().triggerDone(id, reply_obj)) {
+        if (!redis->triggerDone(id, reply_obj)) {
             freeReplyObject(reply_obj);
             return;
         }
@@ -260,8 +273,6 @@ private:
     std::string ip_;
     int port_;
     int db_;
-
-    AsyncScheduler scheduler_;
 };
 
 

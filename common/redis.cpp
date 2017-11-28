@@ -129,6 +129,18 @@ bool RedisCommand<ReplyT>::checkNilReply() {
     return false;
 }
 
+template<class ReplyT>
+void RedisCommand<ReplyT>::on_emit(AsyncScheduler *scheduler) {
+    redis_ = (AsyncRedisClient *) scheduler;
+
+    AsyncTask::on_emit(scheduler);
+}
+
+template<class ReplyT>
+AsyncTaskPtr RedisCommand<ReplyT>::clone() {
+    return RedisCmd(cmd_, callback_);
+}
+
 // ----------------------------------------------------------------------------
 // Specializations of parseReplyObject for all expected return types
 // ----------------------------------------------------------------------------
@@ -378,7 +390,7 @@ void AsyncRedisClient::checkConnection() {
 }
 
 void AsyncRedisClient::run() {
-    scheduler_.run();
+    AsyncScheduler::run();
 }
 
 void AsyncRedisClient::close() {

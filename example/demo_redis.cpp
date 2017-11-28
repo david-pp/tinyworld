@@ -130,122 +130,141 @@ void hmget(AsyncRedisClient &redis, const std::string &key,
 
 void test_redis_1() {
 
-    redis.cmd<std::string>({"GET", "occupation"}, [](RedisCommand<std::string> &c) {
-        if (c.ok()) {
-            std::cout << "Hello, async " << c.reply() << std::endl;
-        } else {
-            std::cerr << "RedisCommand has error code " << c.status() << std::endl;
-        }
-    });
-
-    redis.cmd<std::vector<std::string>>({"HGETALL", "user"}, [](RedisCommand<std::vector<std::string>> &c) {
-        if (c.ok()) {
-            for (auto &v :c.reply()) {
-                std::cout << v << std::endl;
-            }
-        }
-    });
-
-    hmget(redis, "user", [](std::map<std::string, std::string> kvs) {
-        for (auto &it : kvs) {
-            std::cout << it.first << ":" << it.second << std::endl;
-        }
-    });
-
-
-
-//    struct User : public AsyncTask {
-//        std::string name;
-//        int sex = 0;
-//
-//        void call() override {
-//            emit(AsyncTask::P({RedisCmd<std::string>({"HMGET", "this:xx", "name"},
-//                                                     [this](RedisCommand<std::string> &c) {
-//                                                         this->name = c.reply();
-//                                                     }),
-//                               RedisCmd<int>({"HMGET", "this:xx", "sex"},
-//                                             [this](RedisCommand<int> &c) {
-//                                                 this->sex = c.reply();
-//                                             }),
-//                              },
-//                              [this]() {
-//                                  this->done(nullptr);
-//                              }));
+//    redis.cmd<std::string>({"GET", "occupation"}, [](RedisCommand<std::string> &c) {
+//        if (c.ok()) {
+//            std::cout << "Hello, async " << c.reply() << std::endl;
+//        } else {
+//            std::cerr << "RedisCommand has error code " << c.status() << std::endl;
 //        }
-//    };
-//
-//    auto user = std::make_shared<User>();
-//
-//    auto task = AsyncTask::P({
-//                                     RedisCmd<std::string>({"HMGET", "user:xx", "name"},
-//                                                           [user](RedisCommand<std::string> &c) {
-//                                                               user->name = c.reply();
-//                                                           }),
-//                                     RedisCmd<int>({"HMGET", "user:xx", "sex"},
-//                                                   [user](RedisCommand<int> &c) {
-//                                                       user->sex = c.reply();
-//                                                   }),
-//                                     AsyncTask::T<User>([](std::shared_ptr<User> u) {
-//                                     }),
-//
-//                                     AsyncTask::S({}, []() {}),
-//                             },
-//                             [user]() {
-//                                 std::cout << user->name << user->name << std::endl;
-//                             });
-//
-//
-//    parallel({
-//                     {{"GET", "NAME"}, [user](const Reply &c) {
-//                         user->name = c.string;
-//                     }},
-//                     {{"GET", "SEX"},  [user](const Reply &c) {
-//                         user->sex = c.integer;
-//                     }},
-////                     task<User>(),
-//             },
-//             [user]() {
-//                 std::cout << user->name << user->sex << std::endl;
-//             });
-
-//    parallel({
-//                     makecmd({"GET", "NAME"}, [user](const Reply &c) {
-//                         user->name = c.string;
-//                     }),
-//                     makecmd({"GET", "SEX"}, [user](const Reply &c) {
-//                         user->sex = c.integer;
-//                     }),
-//                     parallel({
-//                                      makecmd({"GET", "X"}, [user](const Reply &c) {
-//                                          user->name = c.string;
-//                                      }),
-//                                      makecmd({"GET", "Y"}, [user](const Reply &c) {
-//                                          user->sex = c.integer;
-//                                      }),
-//                              },
-//                              []() {
-//                                  // ...
-//                              }),
-//             },
-//             [user]() {
-//                 std::cout << user->name << user->sex << std::endl;
-//             });
-//
-//
-//    series([]() {
-//
-//    }, []() {
-//
 //    });
 //
-//    a([]() {
-//        b([]() {
-//            c([]() {
-//
-//            })
-//        })
+//    redis.cmd<std::vector<std::string>>({"HGETALL", "user"}, [](RedisCommand<std::vector<std::string>> &c) {
+//        if (c.ok()) {
+//            for (auto &v :c.reply()) {
+//                std::cout << v << std::endl;
+//            }
+//        }
 //    });
 
+
+    redis.emit(
+            RedisCmd<std::string>({"GET", "occupation"}, [](RedisCommand<std::string> &c) {
+                if (c.ok()) {
+                    std::cout << "Hello, async " << c.reply() << std::endl;
+                } else {
+                    std::cerr << "RedisCommand has error code " << c.status() << std::endl;
+                }
+            }));
+
+//    hmget(redis, "user", [](std::map<std::string, std::string> kvs) {
+//        for (auto &it : kvs) {
+//            std::cout << it.first << ":" << it.second << std::endl;
+//        }
+//    });
+
+    struct GetUser : public AsyncTask {
+
+//        GetUser() {}
+
+        GetUser(int id_) : id(id_) {}
+
+        int id = 0;
+
+        std::string name;
+        int sex = 0;
+
+        void call() override {
+            emit(AsyncTask::P({RedisCmd<std::string>({"HGET", "user", "name"},
+                                                     [this](RedisCommand<std::string> &c) {
+                                                         this->name = c.reply();
+                                                         std::cout << this->id << "-P:HGET name = " << this->name
+                                                                   << std::endl;
+                                                     }),
+                               RedisCmd<std::string>({"HGET", "user", "sex"},
+                                                     [this](RedisCommand<std::string> &c) {
+                                                         this->sex = std::atoi(c.reply().c_str());
+                                                         std::cout << this->id << "-P:HGET sex = " << this->sex << std::endl;
+                                                     }),
+                              },
+                              std::bind(&AsyncTask::emit_done, this)));
+        }
+    };
+
+    redis.emit(
+            AsyncTask::P({
+                                 AsyncTask::T<GetUser, int>(1000, [](std::shared_ptr<GetUser> task) {
+                                     std::cout << task->name << std::endl;
+                                     std::cout << task->sex << std::endl;
+                                 }),
+                                 AsyncTask::T<GetUser, int>(2000, [](std::shared_ptr<GetUser> task) {
+                                     std::cout << task->name << std::endl;
+                                     std::cout << task->sex << std::endl;
+                                 }),
+                                 RedisCmd<std::string>({"GET", "occupation"}, [](RedisCommand<std::string> &c) {
+                                     if (c.ok()) {
+                                         std::cout << c.reply() << std::endl;
+                                     }
+                                 }),
+                         },
+                         []() {
+                             std::cout << "Get Two Users!!" << std::endl;
+                         }));
+
+//    return;
+
+
+    struct User : public AsyncTask {
+        std::string name;
+        int sex = 0;
+    };
+
+    auto user = std::make_shared<User>();
+
+    auto task = AsyncTask::P({
+                                     RedisCmd<std::string>({"HGET", "user", "name"},
+                                                           [user](RedisCommand<std::string> &c) {
+                                                               user->name = c.reply();
+                                                               std::cout << "P:HGET name = " << user->name << std::endl;
+                                                           }),
+                                     RedisCmd<std::string>({"HGET", "user", "sex"},
+                                                           [user](RedisCommand<std::string> &c) {
+                                                               user->sex = std::atoi(c.reply().c_str());
+                                                               std::cout << "P:HGET sex = " << user->sex << std::endl;
+                                                           }),
+                                     AsyncTask::S({
+                                                          RedisCmd<std::string>({"HGET", "user", "sex"}),
+                                                          RedisCmd<std::string>({"HGET", "user", "sex"}),
+                                                  }, []() {
+                                         std::cout << "AsyncTask::S " << std::endl;
+                                     }),
+                             },
+                             [user]() {
+                                 std::cout << "P:Done name:" << user->name << std::endl;
+                                 std::cout << "P:Done sex:" << user->sex << std::endl;
+                             });
+
+    redis.emit(task);
+
+    redis.emit(AsyncTask::S({task, task->clone()}, []() {
+        std::cout << "COMPLEX: done" << std::endl;
+    }));
+
+    redis.emit(AsyncTask::S({
+                                    RedisCmd<std::string>({"HGET", "user", "name"},
+                                                          [user](RedisCommand<std::string> &c) {
+                                                              user->name = c.reply();
+                                                              std::cout << "S:HGET name = " << user->name << std::endl;
+                                                          }),
+                                    RedisCmd<std::string>({"HGET", "user", "sex"},
+                                                          [user](RedisCommand<std::string> &c) {
+                                                              user->sex = std::atoi(c.reply().c_str());
+                                                              std::cout << "S:HGET sex = " << user->sex << std::endl;
+                                                          }),
+                            },
+                            [user]() {
+                                std::cout << "S:Done name = " << user->name << std::endl;
+                                std::cout << "S:Done sex = " << user->sex << std::endl;
+                            }));
 
 }
 

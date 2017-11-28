@@ -9,7 +9,6 @@ static std::atomic<uint64_t> s_total_asynctask = {1};
 ///////////////////////////////////////////////////////////////////////
 
 AsyncTask::AsyncTask() {
-    id_ = s_total_asynctask.fetch_add(1);
     createtime_ = std::chrono::high_resolution_clock::now();
     if (scheduler_) scheduler_->stat_.construct++;
 }
@@ -60,7 +59,7 @@ AsyncTaskPtr AsyncTask::P(const std::vector<AsyncTaskPtr> &children, const std::
     if (task) {
         task->on_done_ = done;
         for (auto child : children)
-            task->children_.insert(std::make_pair(child->id_, child));
+            task->addChildByOrder(child);
     }
     return task;
 }
@@ -70,7 +69,7 @@ AsyncTaskPtr AsyncTask::S(const std::vector<AsyncTaskPtr> &children, const std::
     if (task) {
         task->on_done_ = done;
         for (auto child : children)
-            task->children_.insert(std::make_pair(child->id_, child));
+            task->addChildByOrder(child);
     }
     return task;
 }
@@ -78,18 +77,35 @@ AsyncTaskPtr AsyncTask::S(const std::vector<AsyncTaskPtr> &children, const std::
 void AsyncTask::on_emit(AsyncScheduler *scheduler) {
     if (!scheduler) return;
 
+    id_ = s_total_asynctask.fetch_add(1);
     scheduler_ = scheduler;
     scheduler_->stat_.construct++;
 
-    for (auto &it : children_) {
-        it.second->scheduler_ = scheduler;
-        scheduler_->stat_.construct++;
+    for (auto child : children_by_order_) {
+        if (child) {
+            child->on_emit(scheduler_);
+            children_.insert(std::make_pair(child->id_, child));
+        }
     }
 }
 
 void AsyncTask::emit(AsyncTaskPtr task) {
     if (scheduler_)
         scheduler_->emit(task);
+}
+
+bool AsyncTask::addChildByOrder(AsyncTaskPtr task) {
+    if (task) {
+        children_by_order_.push_back(task);
+        task->parent_ = this;
+        return true;
+    }
+
+    return false;
+}
+
+void AsyncTask::emit_done() {
+    scheduler_->triggerDone(shared_from_this(), nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -119,7 +135,7 @@ void SerialsTask::child_done(AsyncTaskPtr child) {
 
     auto first = children_.begin();
     if (first != children_.end() && first->second->id_ == child->id_) {
-        children_.erase(first);
+        children_.erase(child->id_);
         triggerFirstCall();
     }
 
@@ -139,6 +155,17 @@ void SerialsTask::triggerFirstCall() {
     }
 }
 
+AsyncTaskPtr SerialsTask::clone() {
+    std::vector<AsyncTaskPtr> children_clone_;
+    for (auto child : children_by_order_) {
+        auto child_clone = child->clone();
+        if (child_clone)
+            children_clone_.push_back(child_clone);
+    }
+
+    return AsyncTask::S(children_clone_, on_done_);
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 ParallelTask::~ParallelTask() {
@@ -147,9 +174,8 @@ ParallelTask::~ParallelTask() {
 void ParallelTask::call() {
     AsyncTask::call();
 
-    for (auto &it : children_) {
-        if (it.second)
-            scheduler_->triggerCall(it.second);
+    for (auto it : children_by_order_) {
+        scheduler_->triggerCall(it);
     }
 }
 
@@ -181,6 +207,17 @@ void ParallelTask::child_timeout(AsyncTaskPtr child) {
     timeout_ms_ = 0;
 }
 
+AsyncTaskPtr ParallelTask::clone() {
+    std::vector<AsyncTaskPtr> children_clone_;
+    for (auto child : children_by_order_) {
+        auto child_clone = child->clone();
+        if (child_clone)
+            children_clone_.push_back(child_clone);
+    }
+
+    return AsyncTask::P(children_clone_, on_done_);
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 AsyncScheduler::AsyncScheduler() {
@@ -197,7 +234,7 @@ void AsyncScheduler::emit(AsyncTaskPtr task) {
     task->on_emit(this);
 
     std::lock_guard<std::mutex> guard(mutex_ready_);
-    queue_ready_.insert(std::make_pair(task->id_, task));
+    queue_ready_.push_back(task);
 }
 
 void AsyncScheduler::run() {
@@ -223,14 +260,17 @@ void AsyncScheduler::run() {
 
     // Trigger all request (TODO: limit maxnum)
     if (1) {
-        std::lock_guard<std::mutex> guard(mutex_ready_);
 
-        stat_.queue_ready = queue_ready_.size();
+        std::deque<AsyncTaskPtr> queue_ready;
+        {
+            std::lock_guard<std::mutex> guard(mutex_ready_);
+            queue_ready = queue_ready_;
+            stat_.queue_ready = queue_ready_.size();
+            queue_ready_.clear();
+        }
 
-        for (auto &it : queue_ready_)
-            triggerCall(it.second);
-
-        queue_ready_.clear();
+        for (auto task : queue_ready)
+            triggerCall(task);
     }
 }
 

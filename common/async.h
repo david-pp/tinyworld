@@ -24,6 +24,7 @@
 
 #include <map>
 #include <vector>
+#include <queue>
 #include <unordered_map>
 #include <memory>
 #include <chrono>
@@ -54,9 +55,9 @@ public:
 
     static AsyncTaskPtr S(const std::vector<AsyncTaskPtr> &children, const std::function<void()> &done);
 
-    template<typename TaskT>
-    static AsyncTaskPtr T(const std::function<void(std::shared_ptr<TaskT>)> &done) {
-        auto task = std::make_shared<TaskT>();
+    template<typename TaskT, typename... ArgTypes>
+    static AsyncTaskPtr T(ArgTypes... args, const std::function<void(std::shared_ptr<TaskT>)> &done) {
+        auto task = std::make_shared<TaskT>(args...);
         task->on_done_ = [done, task]() {
             done(task);
         };
@@ -86,8 +87,12 @@ public:
 
     void emit(AsyncTaskPtr task);
 
+    bool addChildByOrder(AsyncTaskPtr task);
+
 public:
     virtual ~AsyncTask();
+
+    virtual AsyncTaskPtr clone() { return nullptr; }
 
     virtual void call();
 
@@ -101,8 +106,10 @@ public:
 
     virtual void child_timeout(AsyncTaskPtr child) {}
 
-protected:
-    void on_emit(AsyncScheduler *scheduler);
+//protected:
+    virtual void on_emit(AsyncScheduler *scheduler);
+
+    void emit_done();
 
 protected:
     // Identifier
@@ -117,6 +124,7 @@ protected:
     // Task Hierarchy
     AsyncTask *parent_ = nullptr;
     std::unordered_map<uint64_t, AsyncTaskPtr> children_;
+    std::deque<AsyncTaskPtr> children_by_order_;
 
     // Scheduler
     AsyncScheduler *scheduler_ = nullptr;
@@ -130,6 +138,8 @@ protected:
 class SerialsTask : public AsyncTask {
 public:
     virtual ~SerialsTask();
+
+    AsyncTaskPtr clone() override;
 
     void call() override;
 
@@ -150,6 +160,8 @@ protected:
 class ParallelTask : public AsyncTask {
 public:
     virtual ~ParallelTask();
+
+    AsyncTaskPtr clone() override;
 
     void call() override;
 
@@ -229,7 +241,7 @@ public:
 protected:
     // Ready Queue
     std::mutex mutex_ready_;
-    std::unordered_map<uint64_t, AsyncTaskPtr> queue_ready_;
+    std::deque<AsyncTaskPtr> queue_ready_;
 
     // Waiting Queue
     std::unordered_map<uint64_t, AsyncTaskPtr> queue_wait_;
