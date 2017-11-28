@@ -134,18 +134,6 @@ void SerialsTask::call() {
     triggerFirstCall();
 }
 
-void SerialsTask::done(void *data) {
-    AsyncTask::done(data);
-}
-
-void SerialsTask::timeout() {
-    AsyncTask::cancel();
-}
-
-void SerialsTask::cancel() {
-    AsyncTask::cancel();
-}
-
 void SerialsTask::child_done(AsyncTaskPtr child) {
     if (!child) return;
 
@@ -193,18 +181,6 @@ void ParallelTask::call() {
     for (auto it : children_by_order_) {
         scheduler_->triggerCall(it);
     }
-}
-
-void ParallelTask::done(void *data) {
-    AsyncTask::done(data);
-}
-
-void ParallelTask::timeout() {
-    AsyncTask::cancel();
-}
-
-void ParallelTask::cancel() {
-    AsyncTask::cancel();
 }
 
 void ParallelTask::child_done(AsyncTaskPtr child) {

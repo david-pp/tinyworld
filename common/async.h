@@ -169,6 +169,11 @@ protected:
     std::function<void()> on_cancel_;
 };
 
+//
+// Tasks will be called one by one.
+//
+//  task1.done() -> task2.done() -> ... -> series.done()
+//
 class SerialsTask : public AsyncTask {
 public:
     virtual ~SerialsTask();
@@ -177,21 +182,23 @@ public:
 
     void call() override;
 
-    void done(void *data) override;
-
-    void timeout() override;
-
-    void cancel() override;
-
 protected:
     void child_done(AsyncTaskPtr child) override;
 
     void child_timeout(AsyncTaskPtr child) override;
 
-protected:
     void triggerFirstCall();
 };
 
+//
+// Tasks will be called at the sametime.
+//
+//        +-> task1.done() -> -+
+//        |                    |
+//     ---|-> task2.done() -> -+- -> parallel.done()
+//        |                    |
+//        +-> task3.done() -> -+
+//
 class ParallelTask : public AsyncTask {
 public:
     virtual ~ParallelTask();
@@ -199,12 +206,6 @@ public:
     AsyncTaskPtr clone() override;
 
     void call() override;
-
-    void done(void *data) override;
-
-    void timeout() override;
-
-    void cancel() override;
 
 protected:
     void child_done(AsyncTaskPtr child) override;

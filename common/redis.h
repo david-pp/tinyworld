@@ -37,7 +37,6 @@ namespace tiny {
 
 class AsyncRedisClient;
 
-
 template<class ReplyT>
 class RedisCommand : public AsyncTask {
 public:
@@ -53,8 +52,7 @@ public:
     static const int TIMEOUT = 5;     // No reply, timed out
 
 public:
-    RedisCommand() {
-    }
+    RedisCommand() {}
 
     RedisCommand(AsyncRedisClient *redis, const std::vector<std::string> &cmd,
                  const std::function<void(RedisCommand<ReplyT> &)> &callback)
