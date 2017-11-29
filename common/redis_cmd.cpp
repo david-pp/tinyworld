@@ -250,7 +250,7 @@ void RedisCommand<long long int>::parseReplyObject() {
 }
 
 template<>
-void RedisCommand<nullptr_t>::parseReplyObject() {
+void RedisCommand<std::nullptr_t>::parseReplyObject() {
 
     if (!isExpectedReply(REDIS_REPLY_NIL))
         return;
@@ -321,7 +321,7 @@ template
 class RedisCommand<uint64_t>;
 
 template
-class RedisCommand<nullptr_t>;
+class RedisCommand<std::nullptr_t>;
 
 template
 class RedisCommand<std::vector<std::string>>;

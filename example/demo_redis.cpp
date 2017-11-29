@@ -11,76 +11,6 @@ uint32_t randint(uint64_t start, uint64_t end) {
 
 using namespace tiny;
 
-#if 0
-struct GetUser {
-    GetUser(User *u) {}
-
-    void request() {
-        cmd("HMGE user:xxx");
-    }
-
-    void done() {
-        user->id = 0;
-    }
-
-    User *user;
-};
-
-
-void test_1() {
-    RedisClient redis;
-    redis->connect();
-
-    rdx.command<string>({"GET", "occupation"}, [](RedisCommand <string> &c) {
-        if (c.ok()) {
-            cout << "Hello, async " << c.reply() << endl;
-        } else {
-            cerr << "RedisCommand has error code " << c.status() << endl;
-        }
-    });
-
-    struct Data {
-        User a;
-        int b;
-    };
-
-    auto data = std::make_shared<Data>();
-    rdx.parallel([data]() {
-                     // done
-                     data->a + data->b;
-                 },
-                 GetUser(&data->a, 100),
-
-                 {"GET user:xxx", [&data]() {
-                     data->a = 10;
-                 }},
-                 {"GET user:xxx", [data]() {
-                     data->b = 20;
-                 }});
-
-
-    cmd("get user")
-            .done([](Reply) {
-
-            })
-            .timeout([]() {
-
-            })
-            .error([]() {
-            });
-
-    cmd("get user", [](RedisCommand &c) {
-        if (c.error()) {
-
-        }
-
-        if (c.timeout) {
-
-        }
-    });
-}
-
-#endif
 
 AsyncRedisClient redis("127.0.0.1", 6379);
 
@@ -286,14 +216,38 @@ void demo_userdefine() {
             }));
 }
 
+void demo_hash() {
+
+//    redis.emit(RedisHMSET("user:1000",
+//                          {"name", "charid", "age"},
+//                          {"David++", std::to_string(1000), std::to_string(31)}));
+
+    redis.emit(RedisHMSET("user:1000", {
+            {"name",   "David++"},
+            {"charid", std::to_string(1000)},
+            {"age",    std::to_string(31)},
+    }));
+
+    redis.emit(RedisHMGET("user:1000", {"name", "charid", "age"}, [](KeyValueHashMap &user) {
+        std::cout << "name   = " << user["name"] << std::endl;
+        std::cout << "charid = " << user["charid"] << std::endl;
+        std::cout << "aget   = " << user["age"] << std::endl;
+    }));
+}
+
+void demo_del() {
+    redis.emit(RedisDEL("user:1000"));
+}
 
 int main() {
     std::srand(std::time(0));
 
-    demo_simple();
-    demo_parallel();
-    demo_series();
-    demo_userdefine();
+//    demo_simple();
+//    demo_parallel();
+//    demo_series();
+//    demo_userdefine();
+    demo_hash();
+    demo_del();
 //    test_async();
 //    test_redis_1();
 

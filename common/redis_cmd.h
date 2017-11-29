@@ -21,6 +21,7 @@
 #ifndef TINYWORLD_REDIS_COMMAND_H
 #define TINYWORLD_REDIS_COMMAND_H
 
+#include <iostream>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -28,6 +29,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <unordered_set>
+#include <unordered_map>
 #include <hiredis/async.h>
 #include "async.h"
 #include "eventloop.h"
@@ -39,6 +41,7 @@ class AsyncRedisClient;
 typedef std::vector<std::string> StringVector;
 typedef std::set<std::string> StringSet;
 typedef std::unordered_set<std::string> StringHashSet;
+typedef std::unordered_map<std::string, std::string> KeyValueHashMap;
 
 //
 // Redis Command Status Code
@@ -155,14 +158,98 @@ protected:
     std::string last_error_;
 };
 
+//
+// Helper Function: Create a Redis Command with Callback
+//
 template<typename ReplyT>
 inline AsyncTaskPtr
-RedisCmd(std::vector<std::string> cmd, const std::function<void(RedisCommand<ReplyT> &)> callback = nullptr) {
+RedisCmd(std::vector<std::string> cmd, const std::function<void(RedisCommand<ReplyT> &)> &callback = nullptr) {
     if (cmd.empty())
         return nullptr;
 
     return std::make_shared<RedisCommand<ReplyT>>(nullptr, cmd, callback);
 }
+
+//
+// DEL
+//
+inline AsyncTaskPtr
+RedisDEL(const std::string &key, const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
+    return RedisCmd<uint32_t>({"DEL", key}, callback);
+}
+
+inline AsyncTaskPtr
+RedisDEL(const std::vector<std::string> &keys,
+         const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
+    std::vector<std::string> cmd = {"DEL"};
+    cmd.insert(cmd.end(), keys.begin(), keys.end());
+    return RedisCmd<uint32_t>(cmd, callback);
+}
+
+//
+// HMSET
+//
+inline AsyncTaskPtr
+RedisHMSET(const std::string &key,
+           const std::vector<std::string> &fields,
+           const std::vector<std::string> &values,
+           const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
+
+    if (key.empty() || fields.empty() || values.empty())
+        return nullptr;
+
+    if (fields.size() != values.size())
+        return nullptr;
+
+    std::vector<std::string> cmd{"HMSET", key};
+    for (size_t i = 0; i < fields.size(); ++i) {
+        cmd.push_back(fields[i]);
+        cmd.push_back(values[i]);
+    }
+
+    return RedisCmd<std::string>(cmd, callback);
+}
+
+inline AsyncTaskPtr
+RedisHMSET(const std::string &key,
+           const std::unordered_map<std::string, std::string> &kvs,
+           const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
+    std::vector<std::string> fields;
+    std::vector<std::string> values;
+
+    for (auto &kv : kvs) {
+        fields.push_back(kv.first);
+        values.push_back(kv.second);
+    }
+
+    return RedisHMSET(key, fields, values, callback);
+}
+
+//
+// HMGET
+//
+inline AsyncTaskPtr
+RedisHMGET(const std::string &key,
+           const std::vector<std::string> &fields,
+           const std::function<void(KeyValueHashMap &)> &callback) {
+
+    std::vector<std::string> cmd{"HMGET", key};
+    cmd.insert(cmd.end(), fields.begin(), fields.end());
+
+    return RedisCmd<StringVector>(cmd, [fields, callback](RedisCommand<StringVector> &c) {
+        if (c.ok() && c.reply().size() == fields.size()) {
+            KeyValueHashMap kvs;
+            for (uint64_t i = 0; i < c.reply().size(); ++i) {
+                kvs.insert(std::make_pair(fields[i], c.reply()[i]));
+            }
+            callback(kvs);
+        } else {
+            //TODO: DELETE..
+            std::cout << "ERROR:" << c.lastError() << std::endl;
+        }
+    });
+}
+
 
 } // namespace tiny
 
