@@ -64,9 +64,10 @@ public:
     // Helper Function: Create a user-defined async task with callback.
     //
     template<typename TaskT, typename... ArgTypes>
-    static AsyncTaskPtr T(ArgTypes... args, const std::function<void(std::shared_ptr<TaskT>)> &done = nullptr) {
+    static AsyncTaskPtr T(ArgTypes... args, const std::function<void(TaskT &task)> &done = nullptr) {
         auto task = std::make_shared<TaskT>(args...);
-        task->on_done_ = [done, task]() { done(task); };
+        auto taskptr = task.get();
+        task->on_done_ = [done, taskptr]() { done(*taskptr); };
         return task;
     }
 
@@ -156,7 +157,7 @@ protected:
 
     // Task Hierarchy
     AsyncTask *parent_ = nullptr;
-    std::unordered_map<uint64_t, AsyncTaskPtr> children_;
+    std::map<uint64_t, AsyncTaskPtr> children_;
     std::deque<AsyncTaskPtr> children_by_order_;
 
     // Scheduler

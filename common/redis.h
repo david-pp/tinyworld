@@ -58,6 +58,10 @@ public:
         emit(RedisCmd<ReplyT>(cmd, callback));
     }
 
+    void exec(AsyncTaskPtr task) {
+        emit(task);
+    }
+
 public:
     //
     // Connection Related.
@@ -65,7 +69,6 @@ public:
     bool checkConnection();
     void onConnected(bool success);
     void onDisconnected(bool success);
-
 
     // Submit an asynchronous command to the Redis server. Return
     // true if succeeded, false otherwise.

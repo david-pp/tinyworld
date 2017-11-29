@@ -3,6 +3,7 @@
 #include "async.h"
 #include "eventloop.h"
 #include "redis.h"
+#include "tinylogger.h"
 
 uint32_t randint(uint64_t start, uint64_t end) {
     uint32_t value = std::rand();
@@ -11,38 +12,7 @@ uint32_t randint(uint64_t start, uint64_t end) {
 
 using namespace tiny;
 
-
 AsyncRedisClient redis("127.0.0.1", 6379);
-
-
-struct Reply {
-    std::string string;
-    int integer;
-};
-
-struct Cmd {
-    std::vector<std::string> cmd;
-    std::function<void(const Reply &)> cb;
-
-    std::function<void()> cb_timeout;
-
-    Cmd timeout(std::function<void()> cb_time) {
-        cb_timeout = cb_time;
-        return *this;
-    }
-};
-
-Cmd parallel(const std::vector<Cmd> &cmds, std::function<void()> cb) {
-    Cmd c;
-    return c;
-}
-
-Cmd makecmd(std::vector<std::string> cmd, std::function<void(const Reply &)> cb) {
-    Cmd c;
-    c.cmd = cmd;
-    c.cb = cb;
-    return c;
-}
 
 void hmget(AsyncRedisClient &redis, const std::string &key,
            const std::function<void(std::map<std::string, std::string>)> &callback) {
@@ -56,10 +26,6 @@ void hmget(AsyncRedisClient &redis, const std::string &key,
             callback(kvs);
         }
     });
-}
-
-void test_redis_1() {
-
 }
 
 void test_async() {
@@ -104,30 +70,26 @@ void test_eventloop() {
 }
 
 void demo_simple() {
-    redis.connect();
 
     redis.cmd<std::string>({"SET", "myname", "David++"});
     redis.cmd<std::string>({"SET", "myage", "31"});
 
-//    EventLoop::instance()->onTimer([]() {
     redis.cmd<std::string>({"GET", "myname"}, [](RedisCommand<std::string> &c) {
         if (c.ok()) {
-            std::cout << "[simple] Hello, " << c.reply() << std::endl;
+            LOGGER_INFO("simple1", "Hello, " << c.reply());
         } else {
-            std::cerr << "[simple] Error: " << c.lastError() << " - " << c.status() << std::endl;
+            LOGGER_ERROR("simple1", c.lastError() << " - " << c.status());
         }
     });
 
     redis.emit(
             RedisCmd<std::string>({"GET", "myname"}, [](RedisCommand<std::string> &c) {
                 if (c.ok()) {
-                    std::cout << "[simple] Hello, " << c.reply() << std::endl;
+                    LOGGER_INFO("simple2", "Hello, " << c.reply());
                 } else {
-                    std::cerr << "[simple] Error: " << c.lastError() << " - " << c.status() << std::endl;
+                    LOGGER_ERROR("simple2", c.lastError() << " - " << c.status());
                 }
             }));
-
-//    }, 2);
 }
 
 void demo_parallel() {
@@ -143,116 +105,181 @@ void demo_parallel() {
                                     RedisCmd<std::string>({"GET", "myname"},
                                                           [user](RedisCommand<std::string> &c) {
                                                               user->name = c.reply();
-                                                              std::cout << "P:GET name = "
-                                                                        << user->name << std::endl;
+                                                              LOGGER_INFO("parallel", "GET name = " << user->name);
                                                           }),
                                     RedisCmd<std::string>({"GET", "myage"},
                                                           [user](RedisCommand<std::string> &c) {
                                                               user->age = std::atoi(c.reply().c_str());
-                                                              std::cout << "P:GET age = " << user->age << std::endl;
+                                                              LOGGER_INFO("parallel", "GET age = " << user->age);
                                                           }),
                             },
                             [user]() {
-                                std::cout << "P:Done User: " << user->name << "\t" << user->age << std::endl;
+                                LOGGER_INFO("parallel", "Done - User:" << user->name << "\t" << user->age);
                             }));
 }
 
 void demo_series() {
-    struct User {
-        std::string name;
-        int age = 0;
-    };
 
-    auto user = std::make_shared<User>();
+    auto values = std::make_shared<std::string>();
 
     redis.emit(AsyncTask::S({
                                     RedisCmd<std::string>({"GET", "myname"},
-                                                          [user](RedisCommand<std::string> &c) {
-                                                              user->name = c.reply();
-                                                              std::cout << "S:GET name = "
-                                                                        << user->name << std::endl;
+                                                          [values](RedisCommand<std::string> &c) {
+                                                              values->append(c.reply());
+                                                              values->append(" ");
+                                                              LOGGER_INFO("series", "GET name = " << c.reply());
                                                           }),
                                     RedisCmd<std::string>({"GET", "myage"},
-                                                          [user](RedisCommand<std::string> &c) {
-                                                              user->age = std::atoi(c.reply().c_str());
-                                                              std::cout << "S:GET age = " << user->age << std::endl;
+                                                          [values](RedisCommand<std::string> &c) {
+                                                              values->append(c.reply());
+                                                              values->append("-");
+                                                              LOGGER_INFO("series", "GET age = " << c.reply());
                                                           }),
                             },
-                            [user]() {
-                                std::cout << "S:Done User: " << user->name << "\t" << user->age << std::endl;
+                            [values]() {
+                                LOGGER_INFO("series", "Done - " << *values);
                             }));
 }
 
 
-void demo_userdefine() {
+struct RedisGets : public AsyncTask, public std::map<std::string, std::string> {
+public:
+    RedisGets(const std::vector<std::string> &keys) : keys_(keys) {}
 
-    struct RedisGet : public AsyncTask, public std::map<std::string, std::string> {
-    public:
-        RedisGet(const std::vector<std::string> &keys) : keys_(keys) {}
+    virtual ~RedisGets() {
+//            std::cout << __PRETTY_FUNCTION__ << std::endl;
+    }
 
-        void call() override {
+protected:
+    void on_emit(AsyncScheduler *scheduler) override {
+        AsyncTask::on_emit(scheduler);
 
-            std::vector<AsyncTaskPtr> tasks;
-            for (auto &key : keys_) {
-                tasks.push_back(RedisCmd<std::string>(
-                        {"GET", key},
-                        [this, key](RedisCommand<std::string> &c) {
-                            std::cout << c.reply() << std::endl;
-                            insert(std::make_pair(key, c.reply()));
-                        }));
-            }
-
-            emit(AsyncTask::P(tasks, std::bind(&AsyncTask::emit_done, this)));
+        std::vector<AsyncTaskPtr> tasks;
+        for (auto &key : keys_) {
+            tasks.push_back(RedisCmd<std::string>(
+                    {"GET", key},
+                    [this, key](RedisCommand<std::string> &c) {
+                        LOGGER_INFO("userdef", "GET " << key << "=" << c.reply());
+                        insert(std::make_pair(key, c.reply()));
+                    }));
         }
 
-    private:
-        std::vector<std::string> keys_;
-    };
+        emit(AsyncTask::P(tasks, std::bind(&AsyncTask::emit_done, this)));
+    }
 
-    redis.emit(AsyncTask::T<RedisGet, std::vector<std::string>>(
+private:
+    std::vector<std::string> keys_;
+};
+
+void demo_userdefine() {
+
+    redis.emit(AsyncTask::T<RedisGets, std::vector<std::string>>(
             {"myname", "myage"},
-            [](std::shared_ptr<RedisGet> gets) {
-                std::cout << "S:Done User:" << (*gets)["myname"] << "\t" << (*gets)["myage"] << std::endl;
+            [](RedisGets &gets) {
+                LOGGER_INFO("userdef", "Done - " << gets["myname"] << "\t" << gets["myage"]);
             }));
+}
+
+void demo_compound() {
+
+    redis.emit(AsyncTask::S({
+                                    AsyncTask::T<RedisGets, std::vector<std::string>>(
+                                            {"myname"},
+                                            [](RedisGets &gets) {
+                                                LOGGER_INFO("compound-1", gets["myname"]);
+                                            }),
+                                    AsyncTask::T<RedisGets, std::vector<std::string>>(
+                                            {"myage"},
+                                            [](RedisGets &gets) {
+                                                LOGGER_INFO("compound-2", gets["myage"]);
+                                            }),
+                            },
+                            []() {
+                                LOGGER_INFO("compound-3", "series done");
+
+                                redis.cmd<std::string>({"GET", "myname"}, [](RedisCommand<std::string> &c) {
+                                    LOGGER_INFO("compound-4", "Hello, " << c.reply());
+                                });
+                            }));
 }
 
 void demo_hash() {
 
-//    redis.emit(RedisHMSET("user:1000",
-//                          {"name", "charid", "age"},
-//                          {"David++", std::to_string(1000), std::to_string(31)}));
+    redis.exec(RedisHMSET("user:1000",
+                          {"name", "charid", "age"},
+                          {"David++", std::to_string(1000), std::to_string(31)}));
 
-    redis.emit(RedisHMSET("user:1000", {
+    redis.exec(RedisHMSET("user:1000", {
             {"name",   "David++"},
             {"charid", std::to_string(1000)},
             {"age",    std::to_string(31)},
     }));
 
-    redis.emit(RedisHMGET("user:1000", {"name", "charid", "age"}, [](KeyValueHashMap &user) {
-        std::cout << "name   = " << user["name"] << std::endl;
-        std::cout << "charid = " << user["charid"] << std::endl;
-        std::cout << "aget   = " << user["age"] << std::endl;
+    redis.exec(RedisHMGET("user:1000", {"name", "charid", "age"}, [](KeyValueHashMap &user) {
+        LOGGER_INFO("hash", "name   = " << user["name"]);
+        LOGGER_INFO("hash", "charid = " << user["charid"]);
+        LOGGER_INFO("hash", "age    = " << user["age"]);
     }));
 }
 
-void demo_del() {
-    redis.emit(RedisDEL("user:1000"));
+void demo_key() {
+    redis.exec(RedisDEL("user:1000"));
+
+    redis.exec(RedisINCR("ID", [](uint64_t id) {
+        LOGGER_INFO("key", "ID=" << id);
+    }));
+
+    redis.exec(RedisGET("ID", [](const std::string &id) {
+        LOGGER_INFO("key", "ID=" << id);
+    }));
 }
 
-int main() {
+void demo_list() {
+
+    redis.exec(RedisDEL("userlist"));
+    redis.exec(RedisLPUSH("userlist", {"David++", "Lica", "Jessica"}, [](RedisCommand<uint32_t> &c) {
+        redis.exec(RedisLRANGE("userlist", 0, -1, [](const StringVector &values) {
+            for (auto &v : values) {
+                LOGGER_INFO("list", v);
+            }
+        }));
+    }));
+}
+
+int main(int argc, const char *argv[]) {
     std::srand(std::time(0));
 
-//    demo_simple();
-//    demo_parallel();
-//    demo_series();
-//    demo_userdefine();
-    demo_hash();
-    demo_del();
-//    test_async();
-//    test_redis_1();
+    if (argc < 2) {
+        std::cout << "Usage:" << argv[0]
+                  << " simple | hash | key | list" << std::endl;
+        return 1;
+    }
+
+    std::string op = argv[1];
+
+    redis.connect();
+
+    EventLoop::instance()->onTimer([op]() {
+        if ("simple" == op)
+            demo_simple();
+        else if ("parallel" == op)
+            demo_parallel();
+        else if ("series" == op)
+            demo_series();
+        else if ("user" == op)
+            demo_userdefine();
+        else if ("compound" == op)
+            demo_compound();
+        else if ("hash" == op)
+            demo_hash();
+        else if ("list" == op)
+            demo_list();
+        else if ("key" == op)
+            demo_key();
+    }, 2, 1);
 
     EventLoop::instance()->onTimer([]() {
-        std::cout << redis.statString() << std::endl;
+        LOGGER_INFO("demo", redis.statString());
     }, 1);
 
     EventLoop::instance()->run();
