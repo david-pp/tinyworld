@@ -171,16 +171,21 @@ RedisCmd(std::vector<std::string> cmd, const std::function<void(RedisCommand<Rep
 }
 
 //
+// Redis Commands. Encapsulated in namespace redis.
+//
+namespace redis {
+
+//
 // Strings (https://redis.io/commands#string)
 //
 inline AsyncTaskPtr
-RedisSET(const std::string &key, const std::string &value,
+SET(const std::string &key, const std::string &value,
          const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
     return RedisCmd<std::string>({"SET", key, value}, callback);
 }
 
 inline AsyncTaskPtr
-RedisGET(const std::string &key,
+GET(const std::string &key,
          const std::function<void(const std::string &value)> &callback) {
     return RedisCmd<std::string>({"GET", key}, [callback](RedisCommand<std::string> &c) {
         callback(c.reply());
@@ -188,7 +193,7 @@ RedisGET(const std::string &key,
 }
 
 inline AsyncTaskPtr
-RedisINCR(const std::string &key,
+INCR(const std::string &key,
           const std::function<void(uint64_t value)> &callback) {
     return RedisCmd<uint64_t>({"INCR", key}, [callback](RedisCommand<uint64_t> &c) {
         callback(c.reply());
@@ -199,13 +204,14 @@ RedisINCR(const std::string &key,
 //
 // Keys (https://redis.io/commands#generic)
 //
+
 inline AsyncTaskPtr
-RedisDEL(const std::string &key, const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
+DEL(const std::string &key, const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
     return RedisCmd<uint32_t>({"DEL", key}, callback);
 }
 
 inline AsyncTaskPtr
-RedisDEL(const std::vector<std::string> &keys,
+DEL(const std::vector<std::string> &keys,
          const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
     std::vector<std::string> cmd = {"DEL"};
     cmd.insert(cmd.end(), keys.begin(), keys.end());
@@ -213,14 +219,14 @@ RedisDEL(const std::vector<std::string> &keys,
 }
 
 inline AsyncTaskPtr
-RedisEXPIRE(const std::string &key,
+EXPIRE(const std::string &key,
             uint32_t seconds,
             const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
     return RedisCmd<uint32_t>({"EXPIRE", key, std::to_string(seconds)}, callback);
 }
 
 inline AsyncTaskPtr
-RedisEXPIREAT(const std::string &key,
+EXPIREAT(const std::string &key,
               uint32_t timepoint,
               const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
     return RedisCmd<uint32_t>({"EXPIREAT", key, std::to_string(timepoint)}, callback);
@@ -230,7 +236,7 @@ RedisEXPIREAT(const std::string &key,
 // HMSET
 //
 inline AsyncTaskPtr
-RedisHMSET(const std::string &key,
+HMSET(const std::string &key,
            const std::vector<std::string> &fields,
            const std::vector<std::string> &values,
            const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
@@ -251,7 +257,7 @@ RedisHMSET(const std::string &key,
 }
 
 inline AsyncTaskPtr
-RedisHMSET(const std::string &key,
+HMSET(const std::string &key,
            const std::unordered_map<std::string, std::string> &kvs,
            const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
     std::vector<std::string> fields;
@@ -262,14 +268,14 @@ RedisHMSET(const std::string &key,
         values.push_back(kv.second);
     }
 
-    return RedisHMSET(key, fields, values, callback);
+    return HMSET(key, fields, values, callback);
 }
 
 //
 // HMGET
 //
 inline AsyncTaskPtr
-RedisHMGET(const std::string &key,
+HMGET(const std::string &key,
            const std::vector<std::string> &fields,
            const std::function<void(KeyValueHashMap &)> &callback) {
 
@@ -291,7 +297,7 @@ RedisHMGET(const std::string &key,
 // LPUSH
 //
 inline AsyncTaskPtr
-RedisLPUSH(const std::string &key,
+LPUSH(const std::string &key,
            const std::vector<std::string> &values,
            const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
 
@@ -304,7 +310,7 @@ RedisLPUSH(const std::string &key,
 // LRANGE
 //
 inline AsyncTaskPtr
-RedisLRANGE(const std::string &key,
+LRANGE(const std::string &key,
             int start = 0, int stop = -1,
             const std::function<void(const StringVector &)> &callback = nullptr) {
 
@@ -318,6 +324,7 @@ RedisLRANGE(const std::string &key,
 }
 
 
+} // namespace redis
 } // namespace tiny
 
 #endif //TINYWORLD_REDIS_COMMAND_H
