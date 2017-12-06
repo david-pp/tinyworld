@@ -207,8 +207,8 @@ void demo_compound() {
 void demo_hash() {
 
     redis_cli.exec(HMSET("user:1000",
-                              {"name", "charid", "age"},
-                              {"David++", std::to_string(1000), std::to_string(31)}));
+                         {"name", "charid", "age"},
+                         {"David++", std::to_string(1000), std::to_string(31)}));
 
     redis_cli.exec(HMSET("user:1000", {
             {"name",   "David++"},
@@ -250,6 +250,27 @@ void demo_list() {
     }));
 }
 
+void demo_zset() {
+    using namespace tiny::redis;
+
+    redis_cli.exec(ZADD("myzset", 1, "one"));
+    redis_cli.exec(ZADD("myzset", 1, "uno"));
+    redis_cli.exec(ZADD("myzset", {{2, "two"},
+                                   {3, "three"}}));
+
+    redis_cli.exec(ZRANGE("myzset", 0, -1, [](const StringVector &values) {
+        for (auto &v : values) {
+            LOGGER_INFO("zset", v);
+        }
+    }));
+
+    redis_cli.exec(ZRANGE_WITHSCORES("myzset", 0, -1, [](const std::multimap<int64_t, std::string> &score_values) {
+        for (auto sv : score_values) {
+            LOGGER_INFO("zset", sv.first << " - " << sv.second);
+        }
+    }));
+}
+
 int main(int argc, const char *argv[]) {
     std::srand(std::time(0));
 
@@ -280,6 +301,9 @@ int main(int argc, const char *argv[]) {
             demo_list();
         else if ("key" == op)
             demo_key();
+        else if ("zset" == op)
+            demo_zset();
+
     }, 2, 1);
 
     EventLoop::instance()->onTimer([]() {

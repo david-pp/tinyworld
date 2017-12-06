@@ -106,7 +106,7 @@ public:
     bool ok() const { return reply_status_ == RedisCmdStatus::okay; }
 
     // Returns the reply value, if the reply was successful (ok() == true).
-    ReplyT reply();
+    ReplyT &reply();
 
     // Returns the command string represented by this object.
     std::string cmd() const;
@@ -180,13 +180,13 @@ namespace redis {
 //
 inline AsyncTaskPtr
 SET(const std::string &key, const std::string &value,
-         const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
+    const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
     return RedisCmd<std::string>({"SET", key, value}, callback);
 }
 
 inline AsyncTaskPtr
 GET(const std::string &key,
-         const std::function<void(const std::string &value)> &callback) {
+    const std::function<void(const std::string &value)> &callback) {
     return RedisCmd<std::string>({"GET", key}, [callback](RedisCommand<std::string> &c) {
         callback(c.reply());
     });
@@ -194,7 +194,7 @@ GET(const std::string &key,
 
 inline AsyncTaskPtr
 INCR(const std::string &key,
-          const std::function<void(uint64_t value)> &callback) {
+     const std::function<void(uint64_t value)> &callback) {
     return RedisCmd<uint64_t>({"INCR", key}, [callback](RedisCommand<uint64_t> &c) {
         callback(c.reply());
     });
@@ -212,7 +212,7 @@ DEL(const std::string &key, const std::function<void(RedisCommand<uint32_t> &)> 
 
 inline AsyncTaskPtr
 DEL(const std::vector<std::string> &keys,
-         const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
+    const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
     std::vector<std::string> cmd = {"DEL"};
     cmd.insert(cmd.end(), keys.begin(), keys.end());
     return RedisCmd<uint32_t>(cmd, callback);
@@ -220,15 +220,15 @@ DEL(const std::vector<std::string> &keys,
 
 inline AsyncTaskPtr
 EXPIRE(const std::string &key,
-            uint32_t seconds,
-            const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
+       uint32_t seconds,
+       const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
     return RedisCmd<uint32_t>({"EXPIRE", key, std::to_string(seconds)}, callback);
 }
 
 inline AsyncTaskPtr
 EXPIREAT(const std::string &key,
-              uint32_t timepoint,
-              const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
+         uint32_t timepoint,
+         const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
     return RedisCmd<uint32_t>({"EXPIREAT", key, std::to_string(timepoint)}, callback);
 }
 
@@ -237,9 +237,9 @@ EXPIREAT(const std::string &key,
 //
 inline AsyncTaskPtr
 HMSET(const std::string &key,
-           const std::vector<std::string> &fields,
-           const std::vector<std::string> &values,
-           const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
+      const std::vector<std::string> &fields,
+      const std::vector<std::string> &values,
+      const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
 
     if (key.empty() || fields.empty() || values.empty())
         return nullptr;
@@ -258,8 +258,8 @@ HMSET(const std::string &key,
 
 inline AsyncTaskPtr
 HMSET(const std::string &key,
-           const std::unordered_map<std::string, std::string> &kvs,
-           const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
+      const std::unordered_map<std::string, std::string> &kvs,
+      const std::function<void(RedisCommand<std::string> &)> &callback = nullptr) {
     std::vector<std::string> fields;
     std::vector<std::string> values;
 
@@ -276,8 +276,8 @@ HMSET(const std::string &key,
 //
 inline AsyncTaskPtr
 HMGET(const std::string &key,
-           const std::vector<std::string> &fields,
-           const std::function<void(KeyValueHashMap &)> &callback) {
+      const std::vector<std::string> &fields,
+      const std::function<void(KeyValueHashMap &)> &callback) {
 
     std::vector<std::string> cmd{"HMGET", key};
     cmd.insert(cmd.end(), fields.begin(), fields.end());
@@ -298,8 +298,8 @@ HMGET(const std::string &key,
 //
 inline AsyncTaskPtr
 LPUSH(const std::string &key,
-           const std::vector<std::string> &values,
-           const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
+      const std::vector<std::string> &values,
+      const std::function<void(RedisCommand<uint32_t> &)> &callback = nullptr) {
 
     std::vector<std::string> cmd{"LPUSH", key};
     cmd.insert(cmd.end(), values.begin(), values.end());
@@ -311,14 +311,88 @@ LPUSH(const std::string &key,
 //
 inline AsyncTaskPtr
 LRANGE(const std::string &key,
-            int start = 0, int stop = -1,
-            const std::function<void(const StringVector &)> &callback = nullptr) {
+       int start = 0, int stop = -1,
+       const std::function<void(const StringVector &)> &callback = nullptr) {
 
     return RedisCmd<StringVector>({"LRANGE", key, std::to_string(start), std::to_string(stop)},
                                   [callback](RedisCommand<StringVector> &c) {
                                       if (c.ok()) {
                                           if (callback)
                                               callback(c.reply());
+                                      }
+                                  });
+}
+
+//
+// ZADD
+//
+inline AsyncTaskPtr
+ZADD(const std::string &key,
+     const uint64_t score,
+     const std::string &value,
+     const std::function<void(uint32_t)> &callback = nullptr) {
+
+    return RedisCmd<uint32_t>({"ZADD", key, std::to_string(score), value},
+                              [callback](RedisCommand<uint32_t> &c) {
+                                  if (c.ok()) {
+                                      if (callback)
+                                          callback(c.reply());
+                                  }
+                              });
+}
+
+inline AsyncTaskPtr
+ZADD(const std::string &key,
+     const std::multimap<uint64_t, std::string> &score_value,
+     const std::function<void(uint32_t)> &callback = nullptr) {
+
+    std::vector<std::string> cmd{"ZADD", key};
+    for (auto &kv : score_value) {
+        cmd.push_back(std::to_string(kv.first));
+        cmd.push_back(kv.second);
+    }
+
+    return RedisCmd<uint32_t>(cmd,
+                              [callback](RedisCommand<uint32_t> &c) {
+                                  if (c.ok()) {
+                                      if (callback)
+                                          callback(c.reply());
+                                  }
+                              });
+}
+
+//
+// ZRANGE
+//
+inline AsyncTaskPtr
+ZRANGE(const std::string &key,
+       const int64_t start, const int64_t stop,
+       const std::function<void(const StringVector &)> &callback) {
+
+    return RedisCmd<StringVector>({"ZRANGE", key, std::to_string(start), std::to_string(stop)},
+                                  [callback](RedisCommand<StringVector> &c) {
+                                      if (c.ok()) {
+                                          if (callback)
+                                              callback(c.reply());
+                                      }
+                                  });
+}
+
+inline AsyncTaskPtr
+ZRANGE_WITHSCORES(const std::string &key,
+                  const int64_t start, const int64_t stop,
+                  const std::function<void(const std::multimap<int64_t, std::string> &)> &callback) {
+
+    return RedisCmd<StringVector>({"ZRANGE", key, std::to_string(start), std::to_string(stop), "WITHSCORES"},
+                                  [callback](RedisCommand<StringVector> &c) {
+                                      if (c.ok()) {
+                                          std::multimap<int64_t, std::string> kvs;
+                                          for (uint64_t i = 0;
+                                               i < c.reply().size() && i + 1 < c.reply().size(); i += 2) {
+                                              kvs.insert(std::make_pair(std::atol(c.reply()[i + 1].c_str()),
+                                                                        c.reply()[i]));
+                                          }
+                                          if (callback) callback(kvs);
                                       }
                                   });
 }

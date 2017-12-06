@@ -104,7 +104,7 @@ void RedisCommand<ReplyT>::freeReply() {
 * modified.
 */
 template<class ReplyT>
-ReplyT RedisCommand<ReplyT>::reply() {
+ReplyT& RedisCommand<ReplyT>::reply() {
     if (!ok()) {
         LOGGER_WARN("redis", cmd() << ": Accessing reply value while status != OK.");
     }
